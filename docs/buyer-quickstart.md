@@ -76,7 +76,11 @@ The script uses the canonical `api.agentservices.to` domain, confirms the free p
 
 For a documented snapshot contract—including partial-module behavior, source boundaries, synthesis limits, and x402 receipt guidance—read the [Market Pulse Outcome Contract](market-pulse-outcome-contract.md).
 
-## 8. Start with one paid call
+## 8. Understand the research-brief outcome
+
+For a paid, source-auditable web-research brief, read the [Research Brief Outcome Contract](research-brief-outcome-contract.md). It documents source/extraction status, keyword-synthesis limits, no-result behavior, and buyer-retained x402 evidence.
+
+## 9. Start with one paid call
 
 ```text
 Goal: produce a concise research brief on the Base ecosystem.
