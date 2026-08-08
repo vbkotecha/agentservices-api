@@ -74,6 +74,16 @@ node examples/sdk_free_price_buyer_proof.js BTC ETH
 
 This proves the published SDK buyer path can retrieve an actual result before a buyer configures x402 spend.
 
+## 7. Prove one complete free MCP call
+
+Verify the catalog declaration and execute the hosted free `crypto_prices` tool through MCP JSON-RPC—without a wallet, API key, or paid call:
+
+```bash
+python3 examples/mcp_free_tool_buyer_proof.py BTC,ETH
+```
+
+This is the shortest runnable proof that a buyer can discover AgentServices and receive a real result through the MCP transport before committing spend.
+
 ## 7. Run a no-spend x402 buyer proof
 
 Verify a real free response and decode the live x402 requirements for a paid token-risk report—without signing or settling any payment:
@@ -145,7 +155,7 @@ Budget: use the amount returned by HTTP 402 (catalog price is indicative)
 Output: synthesized research returned to the agent after payment.
 ```
 
-The paid call is the only step that may spend funds. Use an x402-compatible wallet to pay the challenge returned for that exact request, retry with payment proof, and treat the outcome as purchased only when the retry returns successfully. Keep the original challenge, paid response, and wallet reference; then build the portable receipt in step 11. A challenge alone is not settlement evidence, and the included proofs do not claim adoption, settlement, or revenue.
+The paid call is the only step that may spend funds. Use an x402-compatible wallet to pay the challenge returned for that exact request, retry with payment proof, and treat the outcome as purchased only when the retry returns successfully. Keep the original challenge, paid response, and wallet reference; then build the portable receipt in step 12. A challenge alone is not settlement evidence, and the included proofs do not claim adoption, settlement, or revenue.
 
 ## Links
 
