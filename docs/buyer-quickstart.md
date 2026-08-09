@@ -82,11 +82,21 @@ python3 examples/token_risk_buyer_proof.py BTC
 
 The script uses the canonical `api.agentservices.to` domain, confirms the free price surface, then verifies and displays the exact Base/USDC payment challenge for `GET /v1/token-risk/BTC`. Read the [Token Risk Outcome Contract](token-risk-outcome-contract.md) for the paid result schema, method, provenance, limits, and buyer-retained receipt guidance.
 
-## 8. Understand the market-pulse outcome
+## 8. Verify the paid JavaScript SDK path without spending
+
+The SDK surfaces x402 payment challenges as structured errors. Verify the paid technical-indicator route and decode its live Base/USDC requirements without signing or settling a payment:
+
+```bash
+node examples/sdk_paid_indicator_buyer_proof.js BTC
+```
+
+The proof must receive HTTP 402, show the declared amount/network/recipient, and stop before payment. A real buyer then pays with an x402-compatible wallet and retries the request.
+
+## 9. Understand the market-pulse outcome
 
 For a documented snapshot contract—including partial-module behavior, source boundaries, synthesis limits, and x402 receipt guidance—read the [Market Pulse Outcome Contract](market-pulse-outcome-contract.md).
 
-## 9. Start with one paid call
+## 10. Start with one paid call
 
 ```text
 Goal: produce a concise research brief on the Base ecosystem.
