@@ -62,7 +62,17 @@ python3 examples/mcp_discovery_buyer_proof.py
 
 It verifies the server protocol and confirms free tools including `crypto_prices`, `fear_greed`, and `agent_context` from the live MCP catalog.
 
-## 6. Run a no-spend x402 buyer proof
+## 6. Prove one complete free SDK call
+
+Run the JavaScript SDK against the live free price route—without a wallet, API key, or paid call:
+
+```bash
+node examples/sdk_free_price_buyer_proof.js BTC ETH
+```
+
+This proves the published SDK buyer path can retrieve an actual result before a buyer configures x402 spend.
+
+## 7. Run a no-spend x402 buyer proof
 
 Verify a real free response and decode the live x402 requirements for a paid token-risk report—without signing or settling any payment:
 
@@ -72,11 +82,11 @@ python3 examples/token_risk_buyer_proof.py BTC
 
 The script uses the canonical `api.agentservices.to` domain, confirms the free price surface, then verifies and displays the exact Base/USDC payment challenge for `GET /v1/token-risk/BTC`. Read the [Token Risk Outcome Contract](token-risk-outcome-contract.md) for the paid result schema, method, provenance, limits, and buyer-retained receipt guidance.
 
-## 7. Understand the market-pulse outcome
+## 8. Understand the market-pulse outcome
 
 For a documented snapshot contract—including partial-module behavior, source boundaries, synthesis limits, and x402 receipt guidance—read the [Market Pulse Outcome Contract](market-pulse-outcome-contract.md).
 
-## 8. Start with one paid call
+## 9. Start with one paid call
 
 ```text
 Goal: produce a concise research brief on the Base ecosystem.
