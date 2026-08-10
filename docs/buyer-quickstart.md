@@ -2,6 +2,8 @@
 
 AgentServices gives AI agents paid access to research, market intelligence, on-chain data, and inference without API-key provisioning or a subscription. Requests settle per call in USDC on Base through [x402](https://x402.org).
 
+The buyer path is deliberately linear: **discover → try a free result → inspect the paid challenge → pay and retry one outcome → retain the result and receipt**. The exact next action is to run `python3 examples/mcp_discovery_buyer_proof.py` from the repository root. It requires no wallet or API key.
+
 ## 1. Test the free surface
 
 ```bash
@@ -118,9 +120,11 @@ The builder does not sign or settle payments. It records quoted terms and hashes
 ```text
 Goal: produce a concise research brief on the Base ecosystem.
 Call: GET https://api.agentservices.to/v1/research?q=Base ecosystem
-Budget: $0.05 USDC on Base
+Budget: use the amount returned by HTTP 402 (catalog price is indicative)
 Output: synthesized research returned to the agent after payment.
 ```
+
+The paid call is the only step that may spend funds. Use an x402-compatible wallet to pay the challenge returned for that exact request, retry with payment proof, and treat the outcome as purchased only when the retry returns successfully. Keep the original challenge, paid response, and wallet reference; then build the portable receipt in step 11. A challenge alone is not settlement evidence, and the included proofs do not claim adoption, settlement, or revenue.
 
 ## Links
 

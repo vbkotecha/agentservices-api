@@ -16,6 +16,24 @@ AgentServices is the monetized API layer for AI agents. No API keys, no subscrip
 
 **50 endpoints** across crypto data, market intelligence, DeFi analytics, on-chain analytics, AI inference, portfolio intelligence, and dispute resolution. 12 are free. 38 are paid via x402 (from $0.002 to $0.25 per call).
 
+## Buyer path: discover → try → pay → retain
+
+Use the [buyer quickstart](docs/buyer-quickstart.md) for the complete path. The exact next action is to run the no-credential discovery check:
+
+```bash
+python3 examples/mcp_discovery_buyer_proof.py
+```
+
+Then follow the same buyer journey:
+
+1. **Discover:** confirm the hosted MCP server and free tool catalog with the [MCP discovery proof](examples/mcp_discovery_buyer_proof.py).
+2. **Try free:** retrieve a real price result with the [free SDK proof](examples/sdk_free_price_buyer_proof.js).
+3. **Inspect the paid challenge:** decode the live 402 terms with the [paid SDK proof](examples/sdk_paid_indicator_buyer_proof.js). It never signs or settles payment.
+4. **Buy an outcome:** pay the returned x402 terms, retry the same request, and retain the returned paid result. See the [token-risk](docs/token-risk-outcome-contract.md), [market-pulse](docs/market-pulse-outcome-contract.md), and [research-brief](docs/research-brief-outcome-contract.md) contracts for result limits and provenance.
+5. **Retain evidence:** run the existing [receipt builder](examples/build_x402_receipt.py) with the original challenge, paid response, and your wallet authorization or transaction reference.
+
+The four proofs have different limits: discovery and free SDK verify no-spend access; the paid SDK proof verifies challenge shape only; the receipt builder hashes buyer-held evidence and does not verify settlement. None of them claims adoption, settlement, or revenue.
+
 ## Endpoints
 
 ### Free (no payment required)
