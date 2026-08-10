@@ -1,41 +1,91 @@
 # AgentServices Buyer Quickstart
 
-AgentServices gives AI agents paid access to research, market intelligence, on-chain data, and inference without API-key provisioning or a subscription. Requests settle per call in USDC on Base through [x402](https://x402.org).
+AgentServices gives AI agents paid access to research, market intelligence, on-chain data, and inference without API-key provisioning or a subscription. Paid requests use per-call x402 terms in USDC on Base; the request's payment challenge is authoritative.
 
-## 1. Test the free surface
+## Canonical buyer path
+
+Run this path in order. It moves from discovery to a free result, then a paid challenge, a paid outcome, and buyer-retained evidence. The no-spend proofs stop before signing; a `402` challenge is not proof of fulfillment, settlement, adoption, or revenue.
+
+### 1. Discover the hosted service
+
+From the repository root, run:
 
 ```bash
-curl "https://api.agentservices.to/v1/prices?symbols=BTC,ETH"
+python3 examples/mcp_discovery_buyer_proof.py
 ```
 
-## 2. Pick an outcome
+This verifies the hosted Streamable HTTP MCP protocol and live tool catalog without an API key, wallet, or paid call. It proves discovery only; it does not invoke a paid tool or prove a paid result.
 
-Use a bundled endpoint when the agent needs a result, not raw plumbing:
+### 2. Get a free result
 
-| Outcome | Endpoint | Price* |
-|---|---|---:|
-| Deep research brief | `GET /v1/research?q=...` | $0.05 |
-| Market pulse | `GET /v1/market-pulse` | $0.05 |
-| Token risk report | `GET /v1/token-risk/{symbol}` | $0.03 |
-| Portfolio intelligence | `GET /v1/portfolio?symbol=BTC` | $0.10 |
-| On-chain overview | `GET /v1/onchain-overview` | $0.15 |
-| Agent inference | `POST /v1/inference` | $0.03 |
+Run the published JavaScript SDK against the free price route:
 
-`*` Indicative prices shown in the live catalog; the HTTP 402 response is authoritative for the requested call.
+```bash
+node examples/sdk_free_price_buyer_proof.js BTC ETH
+```
 
-## 3. Let x402 handle payment
+This proves the SDK buyer path can return an actual price result before an agent configures x402 spend. It does not exercise a paid endpoint.
 
-A paid request follows one simple loop:
+### 3. Inspect the paid challenge
 
-1. Request the endpoint.
-2. Receive `402 Payment Required` with the payment requirements.
-3. Pay the stated amount in USDC on Base.
-4. Retry with the x402 payment proof.
-5. Receive the result.
+Run the paid SDK proof:
 
-There is no AgentServices API key to rotate. Keep wallet credentials in your agent runtime, never in source code or prompts.
+```bash
+node examples/sdk_paid_indicator_buyer_proof.js BTC
+```
 
-## 4. Connect an agent directly
+It must receive HTTP `402`, decode the live Base/USDC requirements, and stop before signing or settling. The equivalent no-spend proof for a bundled outcome is:
+
+```bash
+python3 examples/token_risk_buyer_proof.py BTC
+```
+
+That script verifies a free response, then decodes the token-risk payment challenge without making a payment. Read the [Token Risk Outcome Contract](token-risk-outcome-contract.md) before relying on that snapshot-based signal.
+
+### 4. Choose and fulfill one paid outcome
+
+Start with one concrete buyer outcome. The research brief is the recommended first call:
+
+```text
+GET https://api.agentservices.to/v1/research?q=Base%20ecosystem&sources=3
+```
+
+The payment loop is:
+
+1. Request the outcome endpoint.
+2. Receive `402 Payment Required` and read its payment requirements.
+3. Pay the stated amount in USDC on Base with an x402-compatible wallet.
+4. Retry with the payment proof.
+5. Retain the returned result and the original challenge.
+
+The request's HTTP 402 challenge is authoritative for the amount, asset, recipient, and network. A successful paid retry demonstrates response fulfillment; settlement remains a wallet/facilitator concern and must be verified separately.
+
+Available outcome contracts:
+
+| Outcome | Endpoint | Contract and disclosed limit |
+|---|---|---|
+| Research brief | `GET /v1/research?q=...&sources=3` | [Research Brief](research-brief-outcome-contract.md): source/extraction status is explicit; synthesis is deterministic keyword analysis, not a market prediction or credibility score. |
+| Token risk report | `GET /v1/token-risk/{token}` | [Token Risk](token-risk-outcome-contract.md): snapshot-based volatility, market-cap, and liquidity-proxy signal; no smart-contract, counterparty, holder-concentration, regulatory, or suitability analysis. |
+| Market pulse | `GET /v1/market-pulse` | [Market Pulse](market-pulse-outcome-contract.md): best-effort modules; inspect `errors`, `data_modules_active`, and `modules_available`; direction is derived only from Fear & Greed. |
+
+Indicative prices in these documents are not guarantees. Use the payment challenge returned for the specific request.
+
+### 5. Build a buyer-retained receipt
+
+After a paid retry returns a result, save the original challenge and result, then run:
+
+```bash
+python3 examples/build_x402_receipt.py \
+  --payment-required-file payment-required.txt \
+  --result-file paid-result.json \
+  --payment-proof '<transaction hash or authorization reference>'
+```
+
+The builder binds the quoted resource and payment terms to SHA-256 digests of the buyer-held challenge and result. It does not sign, settle, or independently verify payment. Verify settlement with the selected wallet or facilitator.
+
+**Exact next buyer action:** from the repository root, run `python3 examples/mcp_discovery_buyer_proof.py`. Then continue through steps 2–5 above.
+
+## Direct integration
 
 For MCP-compatible clients, add the hosted Streamable HTTP server:
 
@@ -50,77 +100,7 @@ For MCP-compatible clients, add the hosted Streamable HTTP server:
 }
 ```
 
-For direct integrations, use the [OpenAPI docs](https://api.agentservices.to/docs) or the [JavaScript SDK](https://www.npmjs.com/package/@agentservices/client).
-
-## 5. Verify hosted MCP discovery
-
-Verify the hosted Streamable HTTP MCP server and its live tool catalog without an API key, wallet, or paid call:
-
-```bash
-python3 examples/mcp_discovery_buyer_proof.py
-```
-
-It verifies the server protocol and confirms free tools including `crypto_prices`, `fear_greed`, and `agent_context` from the live MCP catalog.
-
-## 6. Prove one complete free SDK call
-
-Run the JavaScript SDK against the live free price route—without a wallet, API key, or paid call:
-
-```bash
-node examples/sdk_free_price_buyer_proof.js BTC ETH
-```
-
-This proves the published SDK buyer path can retrieve an actual result before a buyer configures x402 spend.
-
-## 7. Run a no-spend x402 buyer proof
-
-Verify a real free response and decode the live x402 requirements for a paid token-risk report—without signing or settling any payment:
-
-```bash
-python3 examples/token_risk_buyer_proof.py BTC
-```
-
-The script uses the canonical `api.agentservices.to` domain, confirms the free price surface, then verifies and displays the exact Base/USDC payment challenge for `GET /v1/token-risk/BTC`. Read the [Token Risk Outcome Contract](token-risk-outcome-contract.md) for the paid result schema, method, provenance, limits, and buyer-retained receipt guidance.
-
-## 8. Verify the paid JavaScript SDK path without spending
-
-The SDK surfaces x402 payment challenges as structured errors. Verify the paid technical-indicator route and decode its live Base/USDC requirements without signing or settling a payment:
-
-```bash
-node examples/sdk_paid_indicator_buyer_proof.js BTC
-```
-
-The proof must receive HTTP 402, show the declared amount/network/recipient, and stop before payment. A real buyer then pays with an x402-compatible wallet and retries the request.
-
-## 9. Understand the market-pulse outcome
-
-For a documented snapshot contract—including partial-module behavior, source boundaries, synthesis limits, and x402 receipt guidance—read the [Market Pulse Outcome Contract](market-pulse-outcome-contract.md).
-
-## 10. Understand the research-brief outcome
-
-For a paid, source-auditable web-research brief, read the [Research Brief Outcome Contract](research-brief-outcome-contract.md). It documents source/extraction status, keyword-synthesis limits, no-result behavior, and buyer-retained x402 evidence.
-
-## 11. Build a buyer-retained receipt
-
-After a successful paid retry, turn the original `payment-required` value, returned response body, and wallet transaction or authorization reference into a portable procurement receipt:
-
-```bash
-python3 examples/build_x402_receipt.py \\
-  --payment-required-file payment-required.txt \\
-  --result-file paid-result.json \\
-  --payment-proof '<transaction hash or authorization reference>'
-```
-
-The builder does not sign or settle payments. It records quoted terms and hashes the buyer-held challenge and result for later verification.
-
-## 12. Start with one paid call
-
-```text
-Goal: produce a concise research brief on the Base ecosystem.
-Call: GET https://api.agentservices.to/v1/research?q=Base ecosystem
-Budget: $0.05 USDC on Base
-Output: synthesized research returned to the agent after payment.
-```
+For direct integrations, use the [OpenAPI docs](https://api.agentservices.to/docs) or the [JavaScript SDK](https://www.npmjs.com/package/@agentservices/client). Free discovery and SDK calls require no AgentServices API key. Keep wallet credentials in the agent runtime, never in source code or prompts.
 
 ## Links
 

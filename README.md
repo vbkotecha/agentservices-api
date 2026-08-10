@@ -1,6 +1,6 @@
 # AgentServices
 
-> 50-endpoint crypto, market intelligence, and AI inference API for AI agents — with x402 micropayments on Base
+> Crypto, market intelligence, and AI inference APIs for AI agents — with x402 micropayments on Base
 
 [![Version](https://img.shields.io/badge/version-5.3.0-brightgreen)](https://github.com/vbkotecha/agentservices-api)
 [![Network](https://img.shields.io/badge/network-Base%20Mainnet-blue)](https://base.org)
@@ -12,9 +12,9 @@
 
 ## What is this?
 
-AgentServices is the monetized API layer for AI agents. No API keys, no subscriptions — agents pay per-request with USDC on Base using the [x402 payment protocol](https://x402.org).
+AgentServices is the monetized API layer for AI agents. No API keys, no subscriptions — paid requests use per-call USDC terms on Base through the [x402 payment protocol](https://x402.org); the HTTP payment challenge is authoritative for each request.
 
-**50 endpoints** across crypto data, market intelligence, DeFi analytics, on-chain analytics, AI inference, portfolio intelligence, and dispute resolution. 12 are free. 38 are paid via x402 (from $0.002 to $0.25 per call).
+The live catalog spans crypto data, market intelligence, DeFi analytics, on-chain analytics, AI inference, portfolio intelligence, and dispute resolution. Some routes are free; paid routes use x402 and the request's HTTP 402 challenge is authoritative for the current price.
 
 ## Endpoints
 
@@ -182,6 +182,18 @@ curl https://agentservices.to/v1/onchain/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96
 ---
 
 ## Quick Start
+
+### One buyer path: discovery → result → receipt
+
+Use the [buyer quickstart](docs/buyer-quickstart.md) as the canonical evaluation path. It connects the existing proofs and outcome contracts instead of asking a buyer to guess which example to run.
+
+1. **Discover the server.** Run `python3 examples/mcp_discovery_buyer_proof.py` from the repository root. This checks the hosted MCP protocol and tool catalog without credentials, a wallet, or a paid call; it does not prove tool fulfillment.
+2. **Get a free result.** Run `node examples/sdk_free_price_buyer_proof.js BTC ETH`. This verifies the published SDK can return prices without payment; it does not exercise x402.
+3. **Inspect the paid challenge.** Run `node examples/sdk_paid_indicator_buyer_proof.js BTC`. It must receive HTTP 402 and decode the live Base/USDC terms, then stop before signing or settling. The [token-risk proof](examples/token_risk_buyer_proof.py) is the equivalent no-spend path for a bundled outcome.
+4. **Choose the paid result.** Start with the [research brief contract](docs/research-brief-outcome-contract.md) and call `GET https://api.agentservices.to/v1/research?q=Base%20ecosystem`. The contract documents partial/no-result behavior and provenance; the request's 402 challenge remains authoritative for price and payment terms. The [token-risk](docs/token-risk-outcome-contract.md) and [market-pulse](docs/market-pulse-outcome-contract.md) contracts document the other existing outcome paths and their snapshot/best-effort limits.
+5. **Retain the receipt.** After a successful paid retry, run `python3 examples/build_x402_receipt.py --payment-required-file payment-required.txt --result-file paid-result.json --payment-proof '<transaction hash or authorization reference>'`. It binds the challenge to the result for buyer records, but never signs or settles payment.
+
+**Exact next buyer action:** from the repository root, run `python3 examples/mcp_discovery_buyer_proof.py`, then follow the numbered path in [`docs/buyer-quickstart.md`](docs/buyer-quickstart.md).
 
 ### Using curl
 ```bash
