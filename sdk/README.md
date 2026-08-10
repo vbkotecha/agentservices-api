@@ -23,7 +23,7 @@ const geo = await client.getGeo("8.8.8.8");
 const policies = await client.listPolicies();
 
 // Paid endpoints — require x402 payment (USDC on Base)
-// These will return 402 Payment Required without payment headers
+// These return 402 Payment Required without payment proof
 const indicators = await client.getIndicators("BTC");     // $0.02
 const yields = await client.getYields({ limit: 20 });      // $0.02
 const metadata = await client.getMetadata("https://example.com"); // $0.01
@@ -46,7 +46,7 @@ const ruling = await client.fileDispute({                  // $0.05
 | `/v1/fear-greed` | GET | FREE | Crypto Fear & Greed Index |
 | `/v1/geo/{ip}` | GET | FREE | IP geolocation |
 | `/v1/policies` | GET | FREE | List dispute policy templates |
-| `/v1/indicators/{symbol}` | GET | $0.02 | RSI, Bollinger Bands, ATR, Support/Resistance |
+| `/v1/indicators/{symbol}` | GET | $0.02 | RSI, Bollinger Bands, ATR, Support/Resistance; returns x402 402 before payment |
 | `/v1/yields` | GET | $0.02 | Top DeFi yield pools by TVL |
 | `/v1/metadata?url=` | GET | $0.01 | URL metadata extraction |
 | `/v1/disputes` | POST | $0.05 | Policy-driven dispute resolution (AgentCourt engine) |

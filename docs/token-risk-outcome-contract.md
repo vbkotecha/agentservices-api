@@ -90,3 +90,16 @@ Retain the original x402 challenge and your own payment authorization or transac
 ```
 
 A payment challenge is price discovery, not proof of settlement. Treat a request as purchased only after the paid retry returns a successful report.
+
+## Programmatic receipt builder
+
+Build a portable receipt from the buyer-held x402 challenge, payment reference, and successful response body:
+
+```bash
+python3 examples/build_x402_receipt.py \
+  --payment-required-file payment-required.txt \
+  --result-file paid-token-risk.json \
+  --payment-proof '<wallet transaction hash or x402 authorization reference>'
+```
+
+The JSON output binds the quoted resource and payment terms to SHA-256 digests of the original challenge and result. It never signs a payment and does not claim settlement; verify settlement with the selected wallet or facilitator.
