@@ -85,9 +85,10 @@ class DynamicBodyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         if request.method == "POST" and request.url.path in ("/v1/chat/completions", "/v1/inference", "/v1/complete"):
             try:
-                request.state.dynamic_body = json.loads(await request.body())
+                body = json.loads(await request.body())
+                request.scope.setdefault("state", {})["dynamic_body"] = body
             except Exception:
-                request.state.dynamic_body = {}
+                request.scope.setdefault("state", {})["dynamic_body"] = {}
         return await call_next(request)
 
 app.add_middleware(DynamicBodyMiddleware)
@@ -746,8 +747,7 @@ try:
     # DynamicPrice is evaluated by x402 with the request context before 402.
     from x402.http.types import HTTPRequestContext
     def _dynamic_chat_price(context):
-        request = getattr(context.adapter, "_request", None)
-        body = getattr(getattr(request, "state", None), "dynamic_body", None) or {}
+        body = context.adapter.get_body() or {}
         model = body.get("model") or "auto"
         messages = body.get("messages", [])
         if model == "auto":
