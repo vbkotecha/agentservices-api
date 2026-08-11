@@ -4,6 +4,7 @@ Crypto market data, IP geolocation, URL metadata, marketing intelligence
 """
 import os
 import html
+import json
 from pathlib import Path
 
 # Load .env file
@@ -54,6 +55,7 @@ from agent_memory import store as mem_store, retrieve as mem_retrieve, list_keys
 from skill_packs import crypto_dossier, stock_dossier, market_overview, available_skills
 from media_gateway import generate_image, text_to_speech, multi_model_inference, list_all_models
 from voice_gateway import get_phone_number, make_call, lookup_number
+from agent_catalog import search_catalog, get_tool
 
 AISERVICES_PAY_TO = "0x9863aB6242663FCc84c33632741711dB78f8Fd15"
 WALLET = os.environ.get("WALLET_ADDRESS", AISERVICES_PAY_TO)
@@ -1261,6 +1263,41 @@ async def root(request: Request):
             "live": True,
         }
     return HTMLResponse(content=_get_landing())
+
+
+@app.get("/v1/catalog/search", tags=["Discovery"])
+async def catalog_search(query: str = "", tag: list[str] | None = Query(default=None), limit: int = 25):
+    """Find AgentServices capabilities by task, not by vendor or route."""
+    return {
+        "query": query,
+        "tools": search_catalog(query, tag, limit),
+        "total": len(search_catalog(query, tag, limit)),
+        "next": "Use GET /v1/catalog/tools/{id} for the call contract and quote.",
+    }
+
+
+@app.get("/v1/catalog/tools/{tool_id:path}", tags=["Discovery"])
+async def catalog_tool(tool_id: str):
+    """Return a single task-oriented tool contract and its current quote."""
+    tool = get_tool(tool_id)
+    if not tool:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Unknown catalog tool")
+    return tool
+
+
+@app.get("/v1/catalog/platforms", tags=["Discovery"])
+async def catalog_platforms():
+    """Return catalog metadata without overstating external provider coverage."""
+    tools = search_catalog(limit=100)
+    return {
+        "name": "AgentServices catalog",
+        "tool_count": len(tools),
+        "provider_count": 1,
+        "providers": [{"id": "agentservices", "status": "active", "credential_mode": "x402"}],
+        "scope": "first-party AgentServices endpoints",
+        "tools": tools,
+    }
 
 
 @app.get("/api")
@@ -3413,6 +3450,8 @@ async def llms_txt():
 - Full docs: https://agentservices.to/docs
 - OpenAPI spec: https://agentservices.to/openapi.json
 - Health check: https://agentservices.to/health
+- Task catalog: https://agentservices.to/v1/catalog/search?query=web+research
+- Tool contract: https://agentservices.to/v1/catalog/tools/research.web
 
 ## Key Endpoints
 - [Crypto Prices](https://agentservices.to/v1/prices): Free. Real-time prices for 1000+ tokens.
