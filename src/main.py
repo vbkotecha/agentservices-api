@@ -532,16 +532,31 @@ try:
             mime_type="application/json",
             description="Macro economic and crypto indicators",
         ),
-        # --- NEW: Inference Gateway (BlockRun competitor) ---
+        # --- Inference Gateway (tiered pricing) ---
         "POST /v1/inference": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.03"),
             mime_type="application/json",
-            description="LLM inference gateway — chat completions via gpt-5.4/5.4-mini/5.5",
+            description="LLM inference — standard tier ($0.03)",
         ),
         "POST /v1/complete": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.03"),
             mime_type="application/json",
-            description="Quick text completion — send a prompt, get a response",
+            description="Quick text completion ($0.03)",
+        ),
+        "POST /v1/chat/completions": RouteConfig(
+            accepts=_payment_options(X402_WALLET, "$0.03"),
+            mime_type="application/json",
+            description="Chat completions — standard tier. 400+ models. Use model=auto for smart routing.",
+        ),
+        "POST /v1/chat/balanced": RouteConfig(
+            accepts=_payment_options(X402_WALLET, "$0.05"),
+            mime_type="application/json",
+            description="Chat completions — balanced tier (claude sonnet, gpt-5.4+, grok-4.5)",
+        ),
+        "POST /v1/chat/premium": RouteConfig(
+            accepts=_payment_options(X402_WALLET, "$0.15"),
+            mime_type="application/json",
+            description="Chat completions — premium tier (claude opus, gpt-pro, gemini pro)",
         ),
         # --- NEW: Synthesis Endpoints ---
         "GET /v1/token-risk/*": RouteConfig(
@@ -711,7 +726,7 @@ try:
         "POST /v1/chat/completions": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.03"),
             mime_type="application/json",
-            description="Multi-model LLM gateway — 400+ models via OpenRouter. OpenAI-compatible. Use model='auto' for smart routing.",
+            description="Chat completions — standard tier. 400+ models. Use model=auto for smart routing.",
         ),
         # --- Voice Gateway (phone, calls) ---
         "POST /v1/calls": RouteConfig(
@@ -2651,15 +2666,41 @@ class ChatCompletionRequest(BaseModel):
 
 @app.post("/v1/chat/completions", tags=["Inference"],
           summary="Chat Completions (OpenAI-compatible, 400+ models)",
-          description="Drop-in OpenAI replacement. Supports Claude, GPT, Gemini, DeepSeek, Grok, Llama, and more. Use model='auto' for smart routing. $0.03 USDC via x402.")
+          description="Drop-in OpenAI replacement. Standard tier: $0.03. For premium models use /v1/chat/balanced ($0.05) or /v1/chat/premium ($0.15).")
 async def chat_completions_endpoint(req: ChatCompletionRequest):
-    """OpenAI-compatible chat completions with 400+ models and smart routing ($0.03 via x402)"""
+    """OpenAI-compatible chat completions — standard tier ($0.03 via x402)"""
     return chat_completions(
         model=req.model,
         messages=req.messages,
         temperature=req.temperature,
         max_tokens=req.max_tokens,
         profile=req.profile,
+    )
+
+@app.post("/v1/chat/balanced", tags=["Inference"],
+          summary="Chat Completions — Balanced Tier ($0.05)",
+          description="Mid-tier models: Claude Sonnet, GPT-5.4+, Grok-4.5, Gemini Pro. $0.05 USDC via x402.")
+async def chat_balanced(req: ChatCompletionRequest):
+    """Balanced tier chat completions ($0.05 via x402)"""
+    return chat_completions(
+        model=req.model,
+        messages=req.messages,
+        temperature=req.temperature,
+        max_tokens=req.max_tokens,
+        profile="auto",
+    )
+
+@app.post("/v1/chat/premium", tags=["Inference"],
+          summary="Chat Completions — Premium Tier ($0.15)",
+          description="Frontier models: Claude Opus, GPT-Pro, Gemini Pro. $0.15 USDC via x402.")
+async def chat_premium(req: ChatCompletionRequest):
+    """Premium tier chat completions ($0.15 via x402)"""
+    return chat_completions(
+        model=req.model if req.model != "auto" else "anthropic/claude-opus-5",
+        messages=req.messages,
+        temperature=req.temperature,
+        max_tokens=req.max_tokens,
+        profile="premium",
     )
 
 @app.get("/v1/models/all", tags=["Inference"],
