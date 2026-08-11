@@ -1,6 +1,6 @@
 """
 LLM Inference Gateway — x402-paid proxy for AI model inference.
-400+ models via OpenRouter. Tiered pricing: standard $0.03, balanced $0.05, premium $0.15.
+400+ models via OpenRouter. Dynamic pricing: provider cost + 5%, floor $0.003.
 
 Agents pay per inference call via x402. We proxy through OpenRouter for
 universal model access (Claude, GPT, Gemini, DeepSeek, Grok, Llama, etc.)
@@ -26,64 +26,6 @@ _gemini_key_file = Path("/root/.letta/keys/gemini.key")
 if not GEMINI_KEY and _gemini_key_file.exists():
     GEMINI_KEY = _gemini_key_file.read_text().strip()
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-
-# ============================================================
-# PRICING TIERS — matches BlockRun's model (provider cost + margin)
-# ============================================================
-# standard: $0.03 — economy models (deepseek, gemini flash, llama, grok)
-# balanced: $0.05 — mid-tier (claude sonnet, gpt-5.4, gpt-5.6)
-# premium:  $0.15 — frontier (claude opus, gpt-pro, gemini pro)
-
-TIER_STANDARD = "standard"
-TIER_BALANCED = "balanced"
-TIER_PREMIUM = "premium"
-
-TIER_PRICES = {
-    TIER_STANDARD: "$0.03",
-    TIER_BALANCED: "$0.05",
-    TIER_PREMIUM: "$0.15",
-}
-
-# Premium models (high per-token cost)
-PREMIUM_MODELS = {
-    "anthropic/claude-opus-5", "anthropic/claude-opus-4.8", "anthropic/claude-opus-4.7",
-    "anthropic/claude-opus-4.6", "anthropic/claude-opus-4.5", "anthropic/claude-opus-4.1",
-    "anthropic/claude-opus-4", "anthropic/claude-fable-5",
-    "openai/gpt-5.4-pro", "openai/gpt-5.5-pro", "openai/gpt-5.2-pro", "openai/gpt-5-pro",
-    "openai/gpt-5.6-sol-pro", "openai/gpt-5.6-sol", "openai/gpt-5.6-terra-pro",
-    "openai/gpt-chat-latest", "openai/gpt-4-turbo", "openai/gpt-4",
-}
-
-# Balanced models (moderate per-token cost)
-BALANCED_MODELS = {
-    "anthropic/claude-sonnet-5", "anthropic/claude-sonnet-4.6", "anthropic/claude-sonnet-4.5",
-    "anthropic/claude-sonnet-4", "anthropic/claude-haiku-5", "anthropic/claude-haiku-4.5",
-    "openai/gpt-5.4", "openai/gpt-5.5", "openai/gpt-5.6-terra", "openai/gpt-5.6-luna",
-    "openai/gpt-5.6-luna-pro", "openai/gpt-5", "openai/gpt-5.1", "openai/gpt-5.2",
-    "openai/gpt-4.1", "openai/gpt-4o", "google/gemini-2.5-pro",
-    "x-ai/grok-4.5", "x-ai/grok-4.20", "x-ai/grok-4.20-multi-agent",
-}
-
-# Everything else defaults to standard ($0.03)
-
-def get_model_tier(model_id: str) -> str:
-    """Determine pricing tier for a model."""
-    if model_id in PREMIUM_MODELS:
-        return TIER_PREMIUM
-    if model_id in BALANCED_MODELS:
-        return TIER_BALANCED
-    # Pattern matching for variants
-    model_lower = model_id.lower()
-    if any(p in model_lower for p in ["opus", "pro", "fable", "gpt-4-turbo", "gpt-4\n"]):
-        return TIER_PREMIUM
-    if any(p in model_lower for p in ["sonnet", "haiku", "gpt-5.", "gpt-4.1\n", "grok-4.5", "grok-4.2"]):
-        return TIER_BALANCED
-    return TIER_STANDARD
-
-def get_tier_price(tier: str) -> str:
-    """Get x402 price string for a tier."""
-    return TIER_PRICES.get(tier, "$0.03")
-
 
 # Curated model catalog
 CURATED_MODELS = [
@@ -155,18 +97,16 @@ def _route_model(model: str, messages: list, profile: str = "auto") -> str:
 
 
 def list_models():
+    from pricing_cache import pricing_summary as _ps
     return {
-        "models": [{"id": m["id"], "tier": m["tier"], "context": m["context"]} for m in CURATED_MODELS],
-        "pricing": {
-            "standard": "$0.03/call — economy models (deepseek, gemini flash, llama, grok)",
-            "balanced": "$0.05/call — mid-tier (claude sonnet, gpt-5.4+, grok-4.5)",
-            "premium": "$0.15/call — frontier (claude opus, gpt-pro, gemini pro)",
-        },
+        "models": [{"id": m["id"], "context": m["context"]} for m in CURATED_MODELS],
+        "pricing": "Dynamic: provider cost + 5%, floor $0.003. Calculated per request from model, input size, and max_tokens.",
+        "pricing_details": _ps(),
         "default": "auto",
         "router_profiles": list(ROUTER_PROFILES.keys()),
         "total_curated": len(CURATED_MODELS),
         "total_available": "400+ via OpenRouter",
-        "note": "Use model='auto' for smart routing. POST /v1/chat/completions is OpenAI-compatible.",
+        "note": "Use model='auto' for smart routing. POST /v1/chat/completions is OpenAI-compatible. Price varies by model.",
     }
 
 
@@ -183,8 +123,8 @@ def list_all_openrouter_models():
         models = data.get("data", [])
         return {
             "total": len(models),
-            "models": [{"id": m["id"], "tier": get_model_tier(m["id"]), "pricing": m.get("pricing", {}), "context": m.get("context_length", "?")} for m in models[:100]],
-            "note": f"Showing first 100 of {len(models)} models.",
+            "models": [{"id": m["id"], "pricing": m.get("pricing", {}), "context": m.get("context_length", "?")} for m in models[:100]],
+            "note": f"Showing first 100 of {len(models)} models. Price per call = provider cost + 5%, floor $0.003.",
         }
     except Exception as e:
         return {"error": str(e)}
@@ -194,7 +134,6 @@ def inference(model, messages=None, temperature=0.7, max_tokens=1000, stream=Fal
     if messages is None:
         messages = []
     resolved_model = _route_model(model, messages, profile)
-    tier = get_model_tier(resolved_model)
 
     if resolved_model.startswith(("openai/", "anthropic/", "google/", "x-ai/", "deepseek/", "meta-llama/", "~")):
         result = _call_openrouter(resolved_model, messages, temperature, max_tokens)
@@ -205,9 +144,6 @@ def inference(model, messages=None, temperature=0.7, max_tokens=1000, stream=Fal
     else:
         result = _call_openrouter(resolved_model, messages, temperature, max_tokens)
 
-    if isinstance(result, dict):
-        result["tier"] = tier
-        result["tier_price"] = get_tier_price(tier)
     return result
 
 

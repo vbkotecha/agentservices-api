@@ -17,6 +17,7 @@ if env_file.exists():
 from fastapi import FastAPI, Request, Query
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from typing import List
 import sys
@@ -46,6 +47,10 @@ from synthesis_data import (
     defi_strategy_report, market_pulse, onchain_overview, arbitrage_scanner, liquidation_map,
 )
 from inference_gateway import list_models as list_inference_models, inference, quick_complete, chat_completions, list_all_openrouter_models
+from pricing_cache import calculate_price as calc_dynamic_price, fetch_pricing, pricing_summary
+
+# Populated during x402 initialization; read by dynamic pricing middleware.
+_PAYMENT_ROUTES = {}
 from tradfi_data import get_stock_quote, get_stock_history, get_sec_filings, get_commodities, get_economic_indicators, get_fx_rates
 from utility_data import extract_web_content, scan_package_security, seo_keywords
 from agent_memory import store as mem_store, retrieve as mem_retrieve, list_keys as mem_list, delete as mem_delete, search as mem_search
@@ -283,6 +288,32 @@ def _build_bazaar_extension(route_path, route_desc):
             "routeTemplate": info_data["route"],
         }
     return base
+
+class DynamicPricingMiddleware(BaseHTTPMiddleware):
+    """Set the x402 quote from OpenRouter provider cost plus 5%."""
+    async def dispatch(self, request, call_next):
+        if request.url.path in ("/v1/chat/completions", "/v1/inference", "/v1/complete") and request.method == "POST":
+            try:
+                payload = json.loads(await request.body())
+                model = payload.get("model") or "auto"
+                messages = payload.get("messages", [])
+                max_tokens = payload.get("max_tokens", 1000)
+                if model == "auto":
+                    from inference_gateway import _route_model
+                    model = _route_model("auto", messages, payload.get("profile", "auto"))
+                price = calc_dynamic_price(model, messages, max_tokens)
+                for route_key in ("POST /v1/chat/completions", "POST /v1/inference", "POST /v1/complete"):
+                    route = _PAYMENT_ROUTES.get(route_key)
+                    if route:
+                        for option in route.accepts:
+                            if hasattr(option, "price"):
+                                option.price = price
+                            elif hasattr(option, "amount"):
+                                option.amount = price
+                        break
+            except Exception as exc:
+                print(f"[pricing] quote fallback: {exc}", flush=True)
+        return await call_next(request)
 
 @app.middleware("http")
 async def enrich_402_bazaar(request, call_next):
@@ -532,31 +563,16 @@ try:
             mime_type="application/json",
             description="Macro economic and crypto indicators",
         ),
-        # --- Inference Gateway (tiered pricing) ---
+        # --- Inference Gateway (dynamic pricing: provider cost + 5%) ---
         "POST /v1/inference": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.03"),
             mime_type="application/json",
-            description="LLM inference — standard tier ($0.03)",
+            description="LLM inference — dynamic pricing (provider cost + 5%, floor $0.003)",
         ),
         "POST /v1/complete": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.03"),
             mime_type="application/json",
-            description="Quick text completion ($0.03)",
-        ),
-        "POST /v1/chat/completions": RouteConfig(
-            accepts=_payment_options(X402_WALLET, "$0.03"),
-            mime_type="application/json",
-            description="Chat completions — standard tier. 400+ models. Use model=auto for smart routing.",
-        ),
-        "POST /v1/chat/balanced": RouteConfig(
-            accepts=_payment_options(X402_WALLET, "$0.05"),
-            mime_type="application/json",
-            description="Chat completions — balanced tier (claude sonnet, gpt-5.4+, grok-4.5)",
-        ),
-        "POST /v1/chat/premium": RouteConfig(
-            accepts=_payment_options(X402_WALLET, "$0.15"),
-            mime_type="application/json",
-            description="Chat completions — premium tier (claude opus, gpt-pro, gemini pro)",
+            description="Quick text completion — dynamic pricing",
         ),
         # --- NEW: Synthesis Endpoints ---
         "GET /v1/token-risk/*": RouteConfig(
@@ -726,7 +742,7 @@ try:
         "POST /v1/chat/completions": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.03"),
             mime_type="application/json",
-            description="Chat completions — standard tier. 400+ models. Use model=auto for smart routing.",
+            description="Chat completions — dynamic pricing (provider cost + 5%, floor $0.003). 400+ models. Use model=auto for smart routing.",
         ),
         # --- Voice Gateway (phone, calls) ---
         "POST /v1/calls": RouteConfig(
@@ -741,11 +757,16 @@ try:
         ),
     }
 
+    # Expose the route map to the pre-payment dynamic pricing middleware.
+    _PAYMENT_ROUTES.update(payment_routes)
+
     app.add_middleware(
         PaymentMiddlewareASGI,
         routes=payment_routes,
         server=payment_server,
     )
+    # Must wrap x402 so the request body is priced before the payment challenge.
+    app.add_middleware(DynamicPricingMiddleware)
     print(f"[x402] Payment middleware enabled on {X402_NETWORK_LABEL} — disputes ($0.05), indicators/yields/correlation ($0.02–$0.03), metadata/search ($0.01), marketing ($0.03–$0.05), on-chain data ($0.02–$0.03)", flush=True)
     X402_ENABLED = True
     X402_ERROR = None
@@ -2666,41 +2687,15 @@ class ChatCompletionRequest(BaseModel):
 
 @app.post("/v1/chat/completions", tags=["Inference"],
           summary="Chat Completions (OpenAI-compatible, 400+ models)",
-          description="Drop-in OpenAI replacement. Standard tier: $0.03. For premium models use /v1/chat/balanced ($0.05) or /v1/chat/premium ($0.15).")
+          description="Drop-in OpenAI replacement. 400+ models via OpenRouter. Dynamic pricing: provider cost + 5%, floor $0.003. Use model='auto' for smart routing.")
 async def chat_completions_endpoint(req: ChatCompletionRequest):
-    """OpenAI-compatible chat completions — standard tier ($0.03 via x402)"""
+    """OpenAI-compatible chat completions — dynamic pricing via x402"""
     return chat_completions(
         model=req.model,
         messages=req.messages,
         temperature=req.temperature,
         max_tokens=req.max_tokens,
         profile=req.profile,
-    )
-
-@app.post("/v1/chat/balanced", tags=["Inference"],
-          summary="Chat Completions — Balanced Tier ($0.05)",
-          description="Mid-tier models: Claude Sonnet, GPT-5.4+, Grok-4.5, Gemini Pro. $0.05 USDC via x402.")
-async def chat_balanced(req: ChatCompletionRequest):
-    """Balanced tier chat completions ($0.05 via x402)"""
-    return chat_completions(
-        model=req.model,
-        messages=req.messages,
-        temperature=req.temperature,
-        max_tokens=req.max_tokens,
-        profile="auto",
-    )
-
-@app.post("/v1/chat/premium", tags=["Inference"],
-          summary="Chat Completions — Premium Tier ($0.15)",
-          description="Frontier models: Claude Opus, GPT-Pro, Gemini Pro. $0.15 USDC via x402.")
-async def chat_premium(req: ChatCompletionRequest):
-    """Premium tier chat completions ($0.15 via x402)"""
-    return chat_completions(
-        model=req.model if req.model != "auto" else "anthropic/claude-opus-5",
-        messages=req.messages,
-        temperature=req.temperature,
-        max_tokens=req.max_tokens,
-        profile="premium",
     )
 
 @app.get("/v1/models/all", tags=["Inference"],
