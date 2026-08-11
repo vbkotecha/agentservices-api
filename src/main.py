@@ -90,8 +90,6 @@ class DynamicBodyMiddleware(BaseHTTPMiddleware):
                 request.state.dynamic_body = {}
         return await call_next(request)
 
-app.add_middleware(DynamicBodyMiddleware)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -99,6 +97,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(DynamicBodyMiddleware)
 
 # --- Security Headers + Bazaar Discovery Enrichment ---
 # x402 indexers (CDP Bazaar / agentic.market) validate resources by GETting
