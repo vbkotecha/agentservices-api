@@ -31,12 +31,11 @@ DIRECT_PROVIDERS = {
 def fetch_pricing():
     """Fetch and cache all model pricing from OpenRouter."""
     global _last_fetch, _pricing_cache
-    if not OPENROUTER_KEY:
-        return
     try:
+        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}"} if OPENROUTER_KEY else {}
         req = urllib.request.Request(
             f"{OPENROUTER_BASE}/models",
-            headers={"Authorization": f"Bearer {OPENROUTER_KEY}"},
+            headers=headers,
         )
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode())
