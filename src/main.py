@@ -17,7 +17,6 @@ if env_file.exists():
 from fastapi import FastAPI, Request, Query
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from typing import List
 import sys
@@ -81,15 +80,6 @@ All paid endpoints use x402 protocol with USDC on Base.
 """,
 )
 
-class DynamicBodyMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        if request.method == "POST" and request.url.path in ("/v1/chat/completions", "/v1/inference", "/v1/complete"):
-            try:
-                request.state.dynamic_body = json.loads(await request.body())
-            except Exception:
-                request.state.dynamic_body = {}
-        return await call_next(request)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -97,8 +87,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.add_middleware(DynamicBodyMiddleware)
 
 # --- Security Headers + Bazaar Discovery Enrichment ---
 # x402 indexers (CDP Bazaar / agentic.market) validate resources by GETting
@@ -742,8 +730,7 @@ try:
     # DynamicPrice is evaluated by x402 with the request context before 402.
     from x402.http.types import HTTPRequestContext
     def _dynamic_chat_price(context):
-        request = getattr(context.adapter, "_request", None)
-        body = getattr(getattr(request, "state", None), "dynamic_body", None) or {}
+        body = context.adapter.get_body() or {}
         model = body.get("model") or "auto"
         messages = body.get("messages", [])
         if model == "auto":
@@ -756,9 +743,11 @@ try:
             for option in route.accepts:
                 option.price = _dynamic_chat_price
 
-    # Use function middleware so request body can be parsed by the dynamic price hook.
-    from x402.http.middleware.fastapi import payment_middleware
-    app.middleware("http")(payment_middleware(payment_routes, payment_server))
+    app.add_middleware(
+        PaymentMiddlewareASGI,
+        routes=payment_routes,
+        server=payment_server,
+    )
     # Must wrap x402 so the request body is priced before the payment challenge.
     print(f"[x402] Payment middleware enabled on {X402_NETWORK_LABEL} — disputes ($0.05), indicators/yields/correlation ($0.02–$0.03), metadata/search ($0.01), marketing ($0.03–$0.05), on-chain data ($0.02–$0.03)", flush=True)
     X402_ENABLED = True
