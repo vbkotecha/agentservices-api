@@ -465,6 +465,48 @@ MCP_TOOLS = [
             },
             "required": []
         }
+    },
+    {
+        "name": "chat",
+        "description": "LLM chat completion — 400+ models (GPT, Claude, Gemini, DeepSeek, Grok, Llama). Use model='auto' for smart routing. OpenAI-compatible ($0.03 x402)",
+        "title": "AI Chat Completion",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "Model ID or 'auto' for smart routing", "default": "auto"},
+                "messages": {"type": "array", "items": {"type": "object"}, "description": "Chat messages [{role, content}]"},
+                "temperature": {"type": "number", "default": 0.7},
+                "max_tokens": {"type": "integer", "default": 1000},
+                "profile": {"type": "string", "description": "Router profile: auto/eco/premium/free", "default": "auto"}
+            },
+            "required": ["messages"]
+        }
+    },
+    {
+        "name": "generate_image",
+        "description": "Generate an AI image from a text prompt via gpt-image-2 ($0.05 x402)",
+        "title": "AI Image Generation",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "Image description"},
+                "size": {"type": "string", "default": "1024x1024", "description": "256x256, 512x512, or 1024x1024"}
+            },
+            "required": ["prompt"]
+        }
+    },
+    {
+        "name": "text_to_speech",
+        "description": "Convert text to speech audio with natural voices ($0.05 x402)",
+        "title": "Text-to-Speech",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "Text to convert to speech"},
+                "voice": {"type": "string", "default": "alloy", "description": "Voice: alloy, echo, fable, onyx, nova, shimmer"}
+            },
+            "required": ["text"]
+        }
     }
 ]
 
@@ -815,6 +857,21 @@ async def _execute_tool(tool_name: str, args: dict):
         elif tool_name == "liquidation_map":
             from synthesis_data import liquidation_map
             return liquidation_map(args.get("symbols", "BTC,ETH,LINK,AAVE,UNI"))
+        elif tool_name == "chat":
+            from inference_gateway import inference
+            return inference(
+                model=args.get("model", "auto"),
+                messages=args.get("messages", []),
+                temperature=args.get("temperature", 0.7),
+                max_tokens=args.get("max_tokens", 1000),
+                profile=args.get("profile", "auto"),
+            )
+        elif tool_name == "generate_image":
+            from media_gateway import generate_image
+            return generate_image(prompt=args.get("prompt", ""), size=args.get("size", "1024x1024"))
+        elif tool_name == "text_to_speech":
+            from media_gateway import text_to_speech
+            return text_to_speech(text=args.get("text", ""), voice=args.get("voice", "alloy"))
 
         else:
             return {"error": f"Unknown tool: {tool_name}"}

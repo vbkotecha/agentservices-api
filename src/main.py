@@ -45,7 +45,7 @@ from synthesis_data import (
     get_github_trending, get_yield_comparison, deep_research, portfolio_intelligence,
     defi_strategy_report, market_pulse, onchain_overview, arbitrage_scanner, liquidation_map,
 )
-from inference_gateway import list_models as list_inference_models, inference, quick_complete
+from inference_gateway import list_models as list_inference_models, inference, quick_complete, chat_completions, list_all_openrouter_models
 from tradfi_data import get_stock_quote, get_stock_history, get_sec_filings, get_commodities, get_economic_indicators, get_fx_rates
 from utility_data import extract_web_content, scan_package_security, seo_keywords
 from agent_memory import store as mem_store, retrieve as mem_retrieve, list_keys as mem_list, delete as mem_delete, search as mem_search
@@ -711,7 +711,7 @@ try:
         "POST /v1/chat/completions": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.03"),
             mime_type="application/json",
-            description="Multi-model LLM routing — 344+ models via OpenRouter",
+            description="Multi-model LLM gateway — 400+ models via OpenRouter. OpenAI-compatible. Use model='auto' for smart routing.",
         ),
         # --- Voice Gateway (phone, calls) ---
         "POST /v1/calls": RouteConfig(
@@ -2634,9 +2634,67 @@ async def llm_inference(req: InferenceRequest):
 @app.post("/v1/complete", tags=["Inference"],
           summary="Quick Text Completion",
           description="Send a prompt, get a completion. Simpler than /v1/inference. Costs $0.03 USDC via x402.")
-async def quick_completion(prompt: str, model: str = "gpt-5.4-mini", max_tokens: int = 500):
+async def quick_completion(prompt: str, model: str = "auto", max_tokens: int = 500):
     """Quick text completion ($0.03 per call via x402)"""
     return quick_complete(prompt=prompt, model=model, max_tokens=max_tokens)
+
+
+# --- OpenAI-Compatible Chat Completions (400+ models) ---
+
+class ChatCompletionRequest(BaseModel):
+    model: str = Field(default="auto", description="Model ID or 'auto' for smart routing. 400+ models available.")
+    messages: List[dict] = Field(description="Chat messages in OpenAI format [{role, content}]")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    max_tokens: int = Field(default=1000, ge=1, le=32000)
+    stream: bool = Field(default=False)
+    profile: str = Field(default="auto", description="Router profile: auto, eco, premium, free")
+
+@app.post("/v1/chat/completions", tags=["Inference"],
+          summary="Chat Completions (OpenAI-compatible, 400+ models)",
+          description="Drop-in OpenAI replacement. Supports Claude, GPT, Gemini, DeepSeek, Grok, Llama, and more. Use model='auto' for smart routing. $0.03 USDC via x402.")
+async def chat_completions_endpoint(req: ChatCompletionRequest):
+    """OpenAI-compatible chat completions with 400+ models and smart routing ($0.03 via x402)"""
+    return chat_completions(
+        model=req.model,
+        messages=req.messages,
+        temperature=req.temperature,
+        max_tokens=req.max_tokens,
+        profile=req.profile,
+    )
+
+@app.get("/v1/models/all", tags=["Inference"],
+         summary="List All Available Models",
+         description="Fetch the complete live model list from OpenRouter (400+ models). FREE.")
+async def all_models():
+    """Full live model catalog from OpenRouter (FREE)"""
+    return list_all_openrouter_models()
+
+
+# --- Media Generation ---
+
+class ImageRequest(BaseModel):
+    prompt: str = Field(description="Image description")
+    size: str = Field(default="1024x1024", description="256x256, 512x512, or 1024x1024")
+    model: str = Field(default="gpt-image-2")
+
+@app.post("/v1/images/generations", tags=["Media"],
+          summary="AI Image Generation",
+          description="Generate an image from a text prompt. $0.05 USDC via x402.")
+async def image_generation(req: ImageRequest):
+    """AI image generation ($0.05 per image via x402)"""
+    return generate_image(prompt=req.prompt, size=req.size, model=req.model)
+
+class TTSRequest(BaseModel):
+    text: str = Field(description="Text to convert to speech")
+    voice: str = Field(default="alloy", description="Voice: alloy, echo, fable, onyx, nova, shimmer")
+    model: str = Field(default="openai/gpt-audio-mini")
+
+@app.post("/v1/audio/speech", tags=["Media"],
+          summary="Text-to-Speech",
+          description="Convert text to speech audio. $0.05 USDC via x402.")
+async def tts_endpoint(req: TTSRequest):
+    """Text-to-speech ($0.05 per call via x402)"""
+    return text_to_speech(text=req.text, model=req.model, voice=req.voice)
 
 
 # --- Synthesis Endpoints ---
@@ -3560,44 +3618,19 @@ class ImageRequest(BaseModel):
     size: str = Field(default="1024x1024", description="Image size: 1024x1024, 1792x1024, 1024x1792")
     model: str = Field(default="gpt-image-2", description="Image model")
 
-@app.get("/v1/models/all", tags=["Media"],
-          summary="List All Models",
-          description="List all available models across CodexSale and OpenRouter. FREE.")
-async def all_models():
-    """List all models (FREE)"""
-    return list_all_models()
+# (Legacy media endpoints removed — now defined above in the Inference/Media sections)
 
-@app.post("/v1/images/generations", tags=["Media"],
-          summary="AI Image Generation",
-          description="Generate images from text prompts via gpt-image-2. $0.05 via x402.")
-async def image_gen(req: ImageRequest):
-    """Image generation ($0.05 via x402)"""
-    return generate_image(req.prompt, req.size, req.model)
 
-class TTSRequest(BaseModel):
-    text: str = Field(description="Text to convert to speech")
-    model: str = Field(default="openai/gpt-audio-mini", description="TTS model")
-    voice: str = Field(default="alloy", description="Voice: alloy, echo, fable, onyx, nova, shimmer")
+# ============================================================
+# VOICE GATEWAY (v5.3.0 — Phone, Calls)
+# ============================================================
 
-@app.post("/v1/audio/speech", tags=["Media"],
-          summary="Text-to-Speech",
-          description="Convert text to speech audio. Multiple voices available. $0.05 via x402.")
-async def tts(req: TTSRequest):
-    """Text-to-speech ($0.05 via x402)"""
-    return text_to_speech(req.text, req.model, req.voice)
-
-class MultiModelRequest(BaseModel):
-    model: str = Field(description="Model ID (e.g., anthropic/claude-sonnet-4-6, google/gemini-3-pro)")
-    messages: List[dict] = Field(description="Chat messages [{role, content}]")
-    temperature: float = Field(default=0.7)
-    max_tokens: int = Field(default=1000)
-
-@app.post("/v1/chat/completions", tags=["Media"],
-          summary="Multi-Model LLM Routing",
-          description="Route to ANY of 344+ models via OpenRouter. GPT, Claude, Gemini, Grok, DeepSeek, Qwen, and more. $0.03 via x402.")
-async def multi_model(req: MultiModelRequest):
-    """Multi-model inference ($0.03 via x402)"""
-    return multi_model_inference(req.model, req.messages, req.temperature, req.max_tokens)
+@app.get("/v1/phone", tags=["Voice"],
+          summary="Phone Number Info",
+          description="Get the AgentServices phone number and capabilities. FREE.")
+async def phone_info():
+    """Phone number info (FREE)"""
+    return get_phone_number()
 
 
 # ============================================================

@@ -1,8 +1,8 @@
 # AgentServices
 
-> 50-endpoint crypto, market intelligence, and AI inference API for AI agents — with x402 micropayments on Base
+> The paid API layer for AI agents — data, intelligence, inference, and media via x402 micropayments
 
-[![Version](https://img.shields.io/badge/version-5.3.0-brightgreen)](https://github.com/vbkotecha/agentservices-api)
+[![Version](https://img.shields.io/badge/version-6.0.0-brightgreen)](https://github.com/vbkotecha/agentservices-api)
 [![Network](https://img.shields.io/badge/network-Base%20Mainnet-blue)](https://base.org)
 [![Payment](https://img.shields.io/badge/payment-x402%20%2F%20USDC-purple)](https://x402.org)
 [![MCP](https://img.shields.io/badge/MCP-compatible-orange)](https://modelcontextprotocol.io)
@@ -14,7 +14,15 @@
 
 AgentServices is the monetized API layer for AI agents. No API keys, no subscriptions — agents pay per-request with USDC on Base using the [x402 payment protocol](https://x402.org).
 
-**50 endpoints** across crypto data, market intelligence, DeFi analytics, on-chain analytics, AI inference, portfolio intelligence, and dispute resolution. 12 are free. 38 are paid via x402 (from $0.002 to $0.25 per call).
+**60+ endpoints** across crypto data, market intelligence, DeFi analytics, on-chain analytics, **400+ LLM models**, image generation, text-to-speech, portfolio intelligence, and dispute resolution. 12 are free. 48+ are paid via x402 (from $0.002 to $0.25 per call).
+
+### What's new in v6.0
+
+- **400+ LLM models** via OpenAI-compatible `/v1/chat/completions` — GPT, Claude, Gemini, DeepSeek, Grok, Llama, and more
+- **Smart router** — use `model: "auto"` and the gateway classifies your task and picks the cheapest model that handles it
+- **Image generation** — `/v1/images/generations` via gpt-image-2 ($0.05)
+- **Text-to-speech** — `/v1/audio/speech` with natural voices ($0.05)
+- **3 new MCP tools** — `chat`, `generate_image`, `text_to_speech`
 
 ## Buyer path: discover → try → pay → retain
 
