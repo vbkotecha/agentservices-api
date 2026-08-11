@@ -34,6 +34,8 @@ Then follow the same buyer journey:
 
 The four proofs have different limits: discovery and free SDK verify no-spend access; the paid SDK proof verifies challenge shape only; the receipt builder hashes buyer-held evidence and does not verify settlement. None of them claims adoption, settlement, or revenue.
 
+For activation measurement definitions, see [Activation Metrics](docs/activation-metrics.md). To probe the live funnel, run `python3 examples/check_activation_funnel.py`.
+
 ## Endpoints
 
 ### Free (no payment required)
