@@ -747,13 +747,19 @@ try:
     # DynamicPrice is evaluated by x402 with the request context before 402.
     from x402.http.types import HTTPRequestContext
     def _dynamic_chat_price(context):
-        body = context.adapter.get_body() or {}
+        # Never undercharge if a framework adapter cannot expose the body.
+        # The conservative fallback is an authorization ceiling, not a margin
+        # claim; the normal path computes provider cost + 5% from live rates.
+        body = context.adapter.get_body()
+        if not isinstance(body, dict) or not body:
+            return "$0.25"
         model = body.get("model") or "auto"
         messages = body.get("messages", [])
+        max_tokens = min(int(body.get("max_tokens", 1000) or 1000), 4096)
         if model == "auto":
             from inference_gateway import _route_model
             model = _route_model("auto", messages, body.get("profile", "auto"))
-        return calc_dynamic_price(model, messages, body.get("max_tokens", 1000))
+        return calc_dynamic_price(model, messages, max_tokens)
     for route_key in ("POST /v1/chat/completions", "POST /v1/inference", "POST /v1/complete"):
         route = payment_routes.get(route_key)
         if route:
@@ -2680,7 +2686,7 @@ class ChatCompletionRequest(BaseModel):
     model: str = Field(default="auto", description="Model ID or 'auto' for smart routing. 400+ models available.")
     messages: List[dict] = Field(description="Chat messages in OpenAI format [{role, content}]")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
-    max_tokens: int = Field(default=1000, ge=1, le=32000)
+    max_tokens: int = Field(default=1000, ge=1, le=4096)
     stream: bool = Field(default=False)
     profile: str = Field(default="auto", description="Router profile: auto, eco, premium, free")
 

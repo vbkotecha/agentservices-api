@@ -66,8 +66,8 @@ def get_model_pricing(model_id: str) -> dict:
     if model_id in DIRECT_PROVIDERS:
         return DIRECT_PROVIDERS[model_id]
 
-    # Default: assume a reasonable mid-tier cost
-    return {"prompt": 0.000001, "completion": 0.000005}
+    # Unknown models use a conservative premium estimate. Never undercharge.
+    return {"prompt": 0.00001, "completion": 0.00005}
 
 
 def estimate_input_tokens(messages: list) -> int:
