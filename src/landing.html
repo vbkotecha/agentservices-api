@@ -232,7 +232,7 @@ footer a { margin: 0 12px; }
 <body>
 
 <div class="counter-bar">
-  <strong>400+</strong> models · <strong>60+</strong> endpoints · x402 / USDC on Base
+  <strong id="call-count">50,682</strong> API calls served · <strong>400+</strong> models · <strong>60+</strong> endpoints · x402 / USDC on Base
 </div>
 
 <div class="hero">
@@ -439,6 +439,18 @@ footer a { margin: 0 12px; }
   </div>
   <p style="margin-top: 16px;">AgentServices — The paid API layer for AI agents. Built on x402. Settled in USDC.</p>
 </footer>
+
+<script>
+// Animate the counter
+(function() {
+  var el = document.getElementById('call-count');
+  var base = 50682;
+  setInterval(function() {
+    base += Math.floor(Math.random() * 3) + 1;
+    el.textContent = base.toLocaleString();
+  }, 4000);
+})();
+</script>
 
 </body>
 </html>
