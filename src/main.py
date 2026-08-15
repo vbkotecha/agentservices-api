@@ -275,6 +275,84 @@ def _match_bazaar_info(route_path):
             return info
     return None
 
+def _json_schema_from_example(value):
+    """Best-effort JSON Schema fragment from an example value."""
+    if isinstance(value, bool):
+        return {"type": "boolean"}
+    if isinstance(value, int):
+        return {"type": "integer"}
+    if isinstance(value, float):
+        return {"type": "number"}
+    if isinstance(value, str):
+        return {"type": "string"}
+    if isinstance(value, list):
+        item_schema = _json_schema_from_example(value[0]) if value else {}
+        return {"type": "array", "items": item_schema or {"type": "object"}}
+    if isinstance(value, dict):
+        properties = {k: _json_schema_from_example(v) for k, v in value.items()}
+        return {"type": "object", "properties": properties}
+    return {}
+
+def _build_bazaar_schema(info_data):
+    """Build OneSource-shaped JSON Schema (Draft 2020-12) for bazaar.info."""
+    method = info_data.get("method", "GET").upper()
+    query_methods = {"GET", "HEAD", "DELETE"}
+    body_methods = {"POST", "PUT", "PATCH"}
+    method_enum = sorted(query_methods if method in query_methods else body_methods)
+
+    input_props = {
+        "type": {"type": "string", "const": "http"},
+        "method": {"type": "string", "enum": method_enum},
+    }
+    input_required = ["type", "method"]
+
+    if info_data.get("path_params"):
+        path_props = {k: {"type": "string"} for k in info_data["path_params"]}
+        input_props["pathParams"] = {
+            "type": "object",
+            "properties": path_props,
+            "required": list(path_props),
+        }
+
+    if method in query_methods and info_data.get("query"):
+        query_props = {k: {"type": "string"} for k in info_data["query"]}
+        input_props["query"] = {"type": "object", "properties": query_props}
+
+    if method in body_methods and info_data.get("body") is not None:
+        input_props["bodyType"] = {"type": "string", "enum": ["json", "form-data", "text"]}
+        input_props["body"] = _json_schema_from_example(info_data["body"])
+        input_required.extend(["bodyType", "body"])
+
+    info_props = {
+        "input": {
+            "type": "object",
+            "properties": input_props,
+            "required": input_required,
+            "additionalProperties": False,
+        }
+    }
+    info_required = ["input"]
+
+    if info_data.get("output_example") is not None:
+        info_props["output"] = {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string"},
+                "example": {"type": "object"},
+            },
+            "required": ["type"],
+        }
+
+    if info_data.get("route"):
+        info_props["routeTemplate"] = {"type": "string"}
+
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": info_props,
+        "required": info_required,
+    }
+
 def _build_bazaar_extension(route_path, route_desc):
     """Build the full bazaar extension with discovery info for CDP Bazaar indexing."""
     base = {
@@ -303,6 +381,7 @@ def _build_bazaar_extension(route_path, route_desc):
             },
             "routeTemplate": info_data["route"],
         }
+        base["schema"] = _build_bazaar_schema(info_data)
     return base
 
 @app.middleware("http")
@@ -351,6 +430,8 @@ async def enrich_402_bazaar(request, call_next):
                     route_path = route_path.split("aiservices.to", 1)[-1]
                 route_desc = resource.get("description", "AgentServices API")
 
+                bazaar_ext = _build_bazaar_extension(route_path, route_desc)
+
                 for accept in payload.get("accepts", []):
                     # Fix payTo: ensure 0x prefix
                     pay_to = accept.get("payTo", "")
@@ -360,7 +441,9 @@ async def enrich_402_bazaar(request, call_next):
                     # Add bazaar extension with full discovery info
                     if "extensions" not in accept:
                         accept["extensions"] = {}
-                    accept["extensions"]["bazaar"] = _build_bazaar_extension(route_path, route_desc)
+                    accept["extensions"]["bazaar"] = bazaar_ext
+
+                payload.setdefault("extensions", {})["bazaar"] = bazaar_ext
 
                 # Re-encode and update header
                 updated_json = _json.dumps(payload, separators=(',', ':'))
@@ -832,6 +915,8 @@ try:
                         elif "aiservices.to" in route_path:
                             route_path = route_path.split("aiservices.to", 1)[-1]
 
+                        bazaar_ext = _build_bazaar_extension(route_path, route_desc)
+
                         # Enrich accepts with bazaar extension + fix payTo
                         for accept in payload.get("accepts", []):
                             # Fix payTo: ensure 0x prefix
@@ -842,7 +927,9 @@ try:
                             # Add bazaar extension with full discovery info
                             if "extensions" not in accept:
                                 accept["extensions"] = {}
-                            accept["extensions"]["bazaar"] = _build_bazaar_extension(route_path, route_desc)
+                            accept["extensions"]["bazaar"] = bazaar_ext
+
+                        payload.setdefault("extensions", {})["bazaar"] = bazaar_ext
 
                         # Re-encode and update header
                         updated_json = _json_enrich.dumps(payload, separators=(',', ':'))
