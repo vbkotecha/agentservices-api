@@ -1699,6 +1699,7 @@ async def agent_json():
 
 
 @app.get("/.well-known/mcp.json")
+@app.get("/mcp.json", include_in_schema=False)
 async def mcp_well_known():
     """MCP discovery file for mcpub and other MCP directory crawlers."""
     return {
@@ -1708,6 +1709,15 @@ async def mcp_well_known():
         "mcp_endpoint": "https://agentservices.to/mcp",
         "website": "https://agentservices.to",
     }
+
+
+@app.get("/server.json", include_in_schema=False)
+async def server_json():
+    """MCP Registry manifest for GEO/discovery crawlers."""
+    path = Path(__file__).parent.parent / "server.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="not found")
+    return json.loads(path.read_text())
 
 
 @app.get("/.well-known/x402.json")
@@ -2194,97 +2204,6 @@ async def ai_catalog():
             },
         ],
     }
-
-
-@app.get("/llms.txt")
-async def llms_txt():
-    """LLM-friendly API description for agent crawlers and AI discovery."""
-    lines = [
-        "# AgentServices",
-        "",
-        "> Paid APIs for AI agents. 53 services, 41 paid. 37 MCP tools. Crypto data, stocks, SEC filings, commodities, FX, inference gateway (gpt-5.4/5.5), token risk scoring, crypto signals, cross-DEX arbitrage scanner, web extraction, package security, SEO research, and more. All via x402 (USDC on Base).",
-        "",
-        "## Base URL",
-        "https://agentservices.to",
-        "",
-        "## Authentication",
-        "Paid endpoints use x402 protocol (USDC on Base Mainnet). Free endpoints require no auth.",
-        "",
-        "## Free Endpoints",
-        "- GET /v1/price/{symbol} — Current crypto price (e.g., BTC, ETH)",
-        "- GET /v1/prices?symbols=BTC,ETH,SOL — Batch crypto prices",
-        "- GET /v1/fear-greed — Crypto Fear & Greed Index (0-100)",
-        "- GET /v1/geo/{ip} — IP geolocation lookup",
-        "- GET /v1/global — Global market cap, volume, BTC dominance",
-        "- GET /v1/trending — Trending tokens being searched right now",
-        "- GET /v1/gas — Current Ethereum gas prices (slow/standard/fast)",
-        "- GET /v1/swap/quote — DEX swap quote (0x API, 6 chains)",
-        "- GET /v1/predictions — Active Polymarket prediction markets",
-        "- GET /v1/predictions/{slug} — Specific prediction market details",
-        "- GET /v1/news — Latest crypto and blockchain news",
-        "- GET /v1/social — Trending coins, categories, NFTs",
-        "",
-        "## Paid Endpoints (x402 / USDC on Base)",
-        "- GET /v1/indicators/{symbol} — RSI, Bollinger Bands, ATR, Support/Resistance ($0.02)",
-        "- GET /v1/yields — Top DeFi yield pools by TVL ($0.02)",
-        "- GET /v1/metadata?url=... — URL metadata extraction and unfurling ($0.01)",
-        "- GET /v1/search?q=... — AI-powered web search ($0.01)",
-        "- POST /v1/marketing/sentiment — AI brand sentiment analysis ($0.03)",
-        "- POST /v1/marketing/trends — Industry trend detection with velocity ($0.03)",
-        "- POST /v1/marketing/competitors — Competitive intelligence ($0.05)",
-        "- POST /v1/marketing/content-gaps — SEO content gap analysis ($0.04)",
-        "- POST /v1/marketing/ad-copy — AI ad copy generator ($0.05)",
-        "- GET /v1/whales — Large whale transactions BTC/ETH ($0.02)",
-        "- GET /v1/exchange-flows — CEX reserve flows ($0.02)",
-        "- GET /v1/correlation — 30-day cross-asset correlation matrix ($0.03)",
-        "- GET /v1/defi-tvl — DeFi protocol TVL rankings ($0.02)",
-        "- GET /v1/stablecoin-flows — Stablecoin market caps and supply ($0.02)",
-        "- GET /v1/github-velocity — GitHub crypto repo velocity scores ($0.02)",
-        "- GET /v1/macro — Macro economic indicators ($0.02)",
-        "- POST /v1/inference — LLM inference gateway, gpt-5.4/5.4-mini/5.5 ($0.03)",
-        "- POST /v1/complete?prompt=... — Quick text completion ($0.03)",
-        "- GET /v1/token-risk/{token} — Token risk scoring ($0.03)",
-        "- GET /v1/signals/{symbol} — Crypto buy/sell signals ($0.04)",
-        "- GET /v1/hn-sentiment — Hacker News tech sentiment ($0.02)",
-        "- GET /v1/npm-stats/{package} — NPM download trends ($0.02)",
-        "- GET /v1/github-trending — GitHub trending repos ($0.02)",
-        "- GET /v1/yield-comparison — DeFi yield comparison with risk ($0.03)",
-        "- GET /v1/stocks/{ticker} — Real-time stock quote ($0.02)",
-        "- GET /v1/stocks/{ticker}/history — Historical OHLCV ($0.03)",
-        "- GET /v1/sec/{ticker} — SEC filings parser, 10-K/10-Q/Form 4 ($0.03)",
-        "- GET /v1/commodities — Oil, gold, silver, wheat prices ($0.03)",
-        "- GET /v1/economic — CPI, GDP, Fed rate (FRED) ($0.03)",
-        "- GET /v1/fx?base=USD — 30+ currency exchange rates ($0.003)",
-        "- GET /v1/extract?url=... — Web content extraction ($0.002)",
-        "- GET /v1/security/{package} — Package vulnerability scan ($0.02)",
-        "- GET /v1/seo/keywords?keyword=... — SEO keyword research ($0.01)",
-        "- GET /v1/research?q=... — Deep research: search + extract + synthesize ($0.05)",
-        "- GET /v1/portfolio?symbol=... — Portfolio intelligence: price + signal + risk + sentiment ($0.10)",
-        "- GET /v1/defi-strategy?chain=... — DeFi strategy: yields + TVL + comparison + risk ($0.25)",
-        "- GET /v1/market-pulse — Market pulse: sentiment + trending + news + whales ($0.05)",
-        "- GET /v1/onchain-overview — On-chain intelligence: whales + flows + correlation + DeFi TVL ($0.15)",
-        "",
-        "## Free Agent Tools",
-        "- GET /v1/agent-context — Paste-ready market context for LLM prompts",
-        "",
-        "## Example Usage",
-        "```",
-        "# Free: Get BTC price",
-        "curl https://agentservices.to/v1/price/BTC",
-        "",
-        "# Paid: Get BTC indicators (requires x402 payment)",
-        "curl https://agentservices.to/v1/indicators/BTC",
-        "```",
-        "",
-        f"## Payment Wallet\n{X402_WALLET}",
-        "",
-        "## Links",
-        "- API Docs: https://agentservices.to/docs",
-        "- Examples: https://agentservices.to/examples",
-        "- GitHub: https://github.com/vbkotecha/agentservices-api",
-    ]
-    from starlette.responses import PlainTextResponse
-    return PlainTextResponse(content="\n".join(lines), media_type="text/plain")
 
 
 @app.get("/robots.txt")
@@ -3523,6 +3442,10 @@ async def oauth_authorization_server():
 # --- llms.txt (agent-accessible documentation index) ---
 @app.get("/llms.txt", tags=["Discovery"],
          summary="LLM-readable service index",
+         response_class=PlainTextResponse)
+@app.get("/.well-known/llms.txt", tags=["Discovery"],
+         summary="LLM-readable service index (well-known)",
+         include_in_schema=False,
          response_class=PlainTextResponse)
 async def llms_txt():
     """Canonical index for AI agents and LLM crawlers. Follows the llms.txt convention."""
