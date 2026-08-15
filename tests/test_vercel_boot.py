@@ -30,11 +30,11 @@ def test_main_imports_on_vercel_without_root_writes():
         return original_mkdir(self, *args, **kwargs)
 
     for name in list(sys.modules):
-        if name == "main" or name.startswith(("crypto_data", "agent_memory", "geo_data", "web_data")):
+        if name in ("main", "index") or name.startswith(("crypto_data", "agent_memory", "geo_data", "web_data")):
             sys.modules.pop(name, None)
 
     with patch.dict(os.environ, {"VERCEL": "1"}, clear=False), patch.object(Path, "mkdir", tracking_mkdir):
-        app_module = _fresh_import("main")
+        index_module = importlib.import_module("index")
 
-    assert hasattr(app_module, "app")
+    assert hasattr(index_module, "app")
     assert not any(path.startswith("/root/") for path in mkdir_targets)

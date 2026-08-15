@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "src/main.py": {
+    "index.py": {
       "maxDuration": 60,
-      "excludeFiles": "{tests/**,examples/**,sdk/**,mcp/**,plugins/**,agentkit/**,docs/**,aisa-skill/**,.github/**,Dockerfile*,*.md,*.bak}"
+      "excludeFiles": "{tests/**,examples/**,sdk/**,mcp/**,plugins/**,agentkit/**,docs/**,aisa-skill/**,.github/**,Dockerfile*,*.md,*.bak,pyproject.toml}"
     }
   }
 }

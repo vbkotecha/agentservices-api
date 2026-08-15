@@ -1459,6 +1459,11 @@ async def health():
     return {
         "status": "ok",
         "version": "5.3.0",
+        "deploy": {
+            "commit": os.environ.get("VERCEL_GIT_COMMIT_SHA"),
+            "ref": os.environ.get("VERCEL_GIT_COMMIT_REF"),
+            "env": os.environ.get("VERCEL_ENV"),
+        },
         "x402_enabled": X402_ENABLED,
         "x402_error": X402_ERROR,
         "x402_networks": X402_NETWORKS,
