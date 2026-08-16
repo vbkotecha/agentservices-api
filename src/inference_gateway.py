@@ -10,21 +10,19 @@ OpenAI-compatible: POST /v1/chat/completions works with any OpenAI SDK.
 import urllib.request
 import json
 import os
-from pathlib import Path
+
+from letta_keys import load_key
 
 # Load OpenRouter key (primary multi-model gateway)
-OPENROUTER_KEY = Path("/root/.letta/keys/openrouter.key").read_text().strip() if Path("/root/.letta/keys/openrouter.key").exists() else ""
+OPENROUTER_KEY = load_key("openrouter.key", "OPENROUTER_API_KEY")
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
 # Load CodexSale key (fallback for GPT models)
-CODEXSALE_KEY = Path("/root/.letta/keys/codex_sale.key").read_text().strip() if Path("/root/.letta/keys/codex_sale.key").exists() else ""
+CODEXSALE_KEY = load_key("codex_sale.key", "CODEXSALE_API_KEY", "CODEX_SALE_API_KEY")
 CODEXSALE_BASE_URL = "https://codex.sale/v1"
 
 # Load Gemini key (free tier, highest margin)
-GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
-_gemini_key_file = Path("/root/.letta/keys/gemini.key")
-if not GEMINI_KEY and _gemini_key_file.exists():
-    GEMINI_KEY = _gemini_key_file.read_text().strip()
+GEMINI_KEY = load_key("gemini.key", "GEMINI_API_KEY")
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
 # Curated model catalog

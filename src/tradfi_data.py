@@ -235,9 +235,10 @@ def get_economic_indicators():
         # Try FRED API if key available
         fred_key = ""
         try:
-            from pathlib import Path
-            fred_key = Path("/root/.letta/keys/fred.key").read_text().strip()
-        except:
+            from letta_keys import load_key
+
+            fred_key = load_key("fred.key", "FRED_API_KEY")
+        except Exception:
             pass
 
         indicators = []

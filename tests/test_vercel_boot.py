@@ -56,3 +56,60 @@ def test_main_imports_on_vercel_without_root_writes():
 
     assert hasattr(index_module, "app")
     assert not any(path.startswith("/root/") for path in mkdir_targets)
+
+
+def test_letta_key_load_survives_permission_error_on_exists():
+    """Vercel raises PermissionError on Path.exists() under /root/.letta."""
+    original_exists = Path.exists
+
+    def permission_exists(self):
+        if self.as_posix().startswith("/root/.letta"):
+            raise PermissionError(13, "Permission denied")
+        return original_exists(self)
+
+    modules_to_clear = [
+        name
+        for name in list(sys.modules)
+        if name in ("main", "index", "letta_keys", "inference_gateway", "media_gateway", "pricing_cache", "voice_gateway")
+        or name.startswith(("crypto_data", "agent_memory", "geo_data", "web_data"))
+    ]
+    for name in modules_to_clear:
+        sys.modules.pop(name, None)
+
+    env_without_keys = {
+        key: ""
+        for key in (
+            "VERCEL",
+            "OPENROUTER_API_KEY",
+            "CODEXSALE_API_KEY",
+            "CODEX_SALE_API_KEY",
+            "GEMINI_API_KEY",
+            "TWILIO_ACCOUNT_SID",
+            "TWILIO_AUTH_TOKEN",
+            "TWILIO_PHONE_NUMBER",
+        )
+    }
+    env_without_keys["VERCEL"] = "1"
+
+    with patch.dict(os.environ, env_without_keys, clear=False), patch.object(Path, "exists", permission_exists):
+        letta_keys = _fresh_import("letta_keys")
+        assert letta_keys.load_key("openrouter.key", "OPENROUTER_API_KEY") == ""
+        assert letta_keys.load_json_key("twilio.json") == {}
+
+        inference_gateway = _fresh_import("inference_gateway")
+        assert inference_gateway.OPENROUTER_KEY == ""
+        assert inference_gateway.CODEXSALE_KEY == ""
+        assert inference_gateway.GEMINI_KEY == ""
+
+        _fresh_import("media_gateway")
+        _fresh_import("pricing_cache")
+        _fresh_import("voice_gateway")
+
+        index_module = importlib.import_module("index")
+        assert hasattr(index_module, "app")
+
+        from fastapi.testclient import TestClient
+
+        response = TestClient(index_module.app).get("/health")
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"

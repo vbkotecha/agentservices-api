@@ -7,9 +7,10 @@ Matches BlockRun's model: provider cost + 5%, floor $0.003.
 import urllib.request
 import json
 import time
-from pathlib import Path
 
-OPENROUTER_KEY = Path("/root/.letta/keys/openrouter.key").read_text().strip() if Path("/root/.letta/keys/openrouter.key").exists() else ""
+from letta_keys import load_key
+
+OPENROUTER_KEY = load_key("openrouter.key", "OPENROUTER_API_KEY")
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
 # Cache: model_id -> {"prompt": float, "completion": float}

@@ -37,15 +37,14 @@ def _fetch_json(url, timeout=10, headers=None):
 # optional verified-site provider; domain-graph signals are not backlinks.
 # ============================================================
 def _bing_key():
+    from letta_keys import load_key
+
     key = os.getenv("BING_WEBMASTER_API_KEY", "").strip()
     if key:
         return key
-    for path in ("/root/.letta/keys/bing-webmaster.key", "/root/.letta/keys/bing_webmaster.key"):
-        try:
-            return open(path, encoding="utf-8").read().strip()
-        except OSError:
-            pass
-    return ""
+    return load_key("bing-webmaster.key", "BING_WEBMASTER_API_KEY") or load_key(
+        "bing_webmaster.key", "BING_WEBMASTER_API_KEY"
+    )
 
 
 def _bing_json(method, params):
