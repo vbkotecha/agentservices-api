@@ -493,7 +493,7 @@ try:
     # Build facilitator — CDP needs JWT auth headers, others (Dexter) are open
     facilitator_config_kwargs = {"url": X402_FACILITATOR_URL}
     if not X402_IS_MULTICHAIN:
-        from x402_payment import create_cdp_auth_headers, CDP_FACILITATOR_URL
+        from x402_payment import base_supported_response, cdp_auth_available, create_cdp_auth_headers, CDP_FACILITATOR_URL
         facilitator_config_kwargs["url"] = CDP_FACILITATOR_URL
         facilitator_config_kwargs["auth_provider"] = CreateHeadersAuthProvider(create_cdp_auth_headers)
 
@@ -506,6 +506,13 @@ try:
     class CDPFixedFacilitatorClient(HTTPFacilitatorClient):
         """HTTPFacilitatorClient that strips resource/extensions from paymentPayload
         before sending to CDP /verify — fixes x402-foundation/x402#2832."""
+
+        def get_supported(self):
+            # Unpaid 402 challenges only need supported kinds during initialize().
+            # On Vercel, CDP keys are often unset; verify/settle still require them.
+            if not X402_IS_MULTICHAIN and not cdp_auth_available():
+                return base_supported_response()
+            return super().get_supported()
 
         async def verify(self, payment_payload, payment_requirements):
             payload_dict = payment_payload.model_dump(by_alias=True, exclude_none=True) if hasattr(payment_payload, 'model_dump') else dict(payment_payload)
