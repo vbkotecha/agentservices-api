@@ -1,4 +1,4 @@
 # Force dependency install from requirements.txt (see vercel/vercel#14041).
-pyproject.toml
+# Never commit a [project].dependencies pyproject.toml here without uv.lock.
 poetry.lock
 uv.lock

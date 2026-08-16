@@ -13,3 +13,5 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from main import app  # noqa: F401
+
+__all__ = ["app"]
