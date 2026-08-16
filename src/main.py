@@ -50,6 +50,7 @@ from synthesis_data import (
 from inference_gateway import list_models as list_inference_models, inference, quick_complete, chat_completions, list_all_openrouter_models
 from pricing_cache import calculate_price as calc_dynamic_price, fetch_pricing, pricing_summary
 from tradfi_data import get_stock_quote, get_stock_history, get_sec_filings, get_commodities, get_economic_indicators, get_fx_rates
+from gov_data import get_ca_entity_status
 from utility_data import extract_web_content, scan_package_security, seo_keywords, backlink_intelligence
 from agent_memory import store as mem_store, retrieve as mem_retrieve, list_keys as mem_list, delete as mem_delete, search as mem_search
 from skill_packs import crypto_dossier, stock_dossier, market_overview, available_skills
@@ -197,6 +198,8 @@ _BAZAAR_ENDPOINT_INFO = {
         "output_example": {"USD/EUR": 0.92, "USD/GBP": 0.79, "USD/JPY": 149.50, "EUR/GBP": 0.86}},
     "/v1/fx-rates": {"method": "GET", "route": "/v1/fx-rates", "path_params": {}, "query": {"base": "USD"}, "body": None,
         "output_example": {"base": "USD", "rates": {"EUR": 0.92, "GBP": 0.79, "JPY": 149.50, "CAD": 1.36}}},
+    "/v1/gov/us/ca/entity": {"method": "GET", "route": "/v1/gov/us/ca/entity", "path_params": {}, "query": {"q": "202150010654"}, "body": None,
+        "output_example": {"sku": "ca.entity.status", "name": "Pure Moon LLC", "entity_number": "202150010654", "type": "Limited Liability Company - CA", "status": "Active", "jurisdiction": "CALIFORNIA", "registered_agent": {"name": "Sierra Pearson", "city": "SACRAMENTO", "state": "CA"}, "initial_filing_date": "2021-12-06", "source": "California Secretary of State Business Entity Public Search API", "retrieved_at": "2026-08-16T00:00:00Z", "disclaimer": "This information is sourced from public records and is not legal or tax advice."}},
     "/v1/stocks": {"method": "GET", "route": "/v1/stocks/:ticker", "path_params": {"ticker": "AAPL"}, "query": {}, "body": None,
         "output_example": {"ticker": "AAPL", "price": 227.50, "change": 1.23, "volume": 52000000, "market_cap": 3450000000000}},
     "/v1/sec": {"method": "GET", "route": "/v1/sec/:ticker", "path_params": {"ticker": "AAPL"}, "query": {}, "body": None,
@@ -717,6 +720,11 @@ try:
             accepts=_payment_options(X402_WALLET, "$0.003"),
             mime_type="application/json",
             description="Real-time FX/forex rates for 30+ currencies (alias for /v1/fx)",
+        ),
+        "GET /v1/gov/us/ca/entity": RouteConfig(
+            accepts=_payment_options(X402_WALLET, "$0.03"),
+            mime_type="application/json",
+            description="California business entity status lookup by name or entity number",
         ),
         # --- NEW: Utility (gap fillers) ---
         "GET /v1/extract": RouteConfig(
@@ -2881,6 +2889,14 @@ async def fx_rates_alias(base: str = "USD"):
     return get_fx_rates(base)
 
 
+@app.get("/v1/gov/us/ca/entity", tags=["Government"],
+         summary="California Business Entity Status",
+         description="Public California SOS business entity lookup by name or entity number. SKU ca.entity.status. $0.03 USDC via x402.")
+async def ca_entity_status(q: str = Query(..., description="Business name or California entity number")):
+    """California entity status ($0.03 per call via x402)"""
+    return get_ca_entity_status(q)
+
+
 # ============================================================
 # UTILITY ENDPOINTS (v5.1.0 — Gap Fillers)
 # ============================================================
@@ -3638,6 +3654,7 @@ _PAID_OPERATIONS = {
     "/v1/commodities": "$0.02",
     "/v1/economic": "$0.02",
     "/v1/fx-rates": "$0.003",
+    "/v1/gov/us/ca/entity": "$0.03",
     "/v1/extract": "$0.002",
     "/v1/security/{package}": "$0.02",
     "/v1/seo/keywords": "$0.01",
