@@ -63,6 +63,7 @@ import erc8004_provider
 
 AISERVICES_PAY_TO = "0x9863aB6242663FCc84c33632741711dB78f8Fd15"
 WALLET = os.environ.get("WALLET_ADDRESS", AISERVICES_PAY_TO)
+INDEXNOW_KEY = "42b652cb-203a-42db-8a86-4e94fbfcbeae"
 
 app = FastAPI(
     title="AgentServices",
@@ -2287,6 +2288,12 @@ async def robots_txt():
         "Sitemap: https://agentservices.to/sitemap.xml",
     ]
     return PlainTextResponse(content="\n".join(lines), media_type="text/plain")
+
+
+@app.get(f"/{INDEXNOW_KEY}.txt", include_in_schema=False)
+async def indexnow_key():
+    """IndexNow key verification file for search engine URL submission."""
+    return PlainTextResponse(content=INDEXNOW_KEY, media_type="text/plain")
 
 
 @app.get("/schema.json")
