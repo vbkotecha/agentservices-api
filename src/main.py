@@ -34,6 +34,7 @@ from prediction_data import get_polymarket_markets, get_polymarket_market, get_p
 from news_data import get_crypto_news, get_social_trending, get_global_market
 from engine.policy_engine import evaluate_dispute, list_policies
 from mcp_endpoint import router as mcp_router
+from human_billing.router import router as human_billing_router
 from marketing_data import (
     SentimentRequest, TrendRequest, CompetitorRequest, ContentGapRequest, AdCopyRequest,
     analyze_sentiment, detect_trends, analyze_competitors, find_content_gaps, generate_ad_copy,
@@ -1080,6 +1081,7 @@ except Exception as e:
 
 # --- MCP Remote Transport ---
 app.include_router(mcp_router)
+app.include_router(human_billing_router)
 print(f"[mcp] Remote MCP endpoint mounted at /mcp — 21 tools available", flush=True)
 
 
@@ -1577,6 +1579,7 @@ async def api_discovery():
 
 @app.get("/health")
 async def health():
+    from human_billing.config import oauth_enabled, credits_enabled, human_door_enabled
     return {
         "status": "ok",
         "version": "5.3.0",
@@ -1589,6 +1592,9 @@ async def health():
         "x402_error": X402_ERROR,
         "x402_networks": X402_NETWORKS,
         "x402_facilitator": X402_FACILITATOR_URL,
+        "human_door_enabled": human_door_enabled(),
+        "oauth_enabled": oauth_enabled(),
+        "credits_enabled": credits_enabled(),
         "services": ["crypto_prices", "indicators", "defi_yields", "fear_greed", "geo", "metadata", "search", "swap_quote", "trending", "gas", "predictions", "news", "social_trending", "global", "disputes", "policies", "marketing_sentiment", "marketing_trends", "marketing_competitors", "marketing_content_gaps", "marketing_ad_copy", "whales", "exchange_flows", "correlation", "defi_tvl", "stablecoin_flows", "github_velocity", "agent_context", "macro", "inference", "quick_complete", "token_risk", "crypto_signals", "hn_sentiment", "npm_stats", "github_trending", "yield_comparison", "stock_quote", "stock_history", "sec_filings", "commodities", "economic_indicators", "fx_rates", "web_extract", "package_security", "seo_keywords", "deep_research", "portfolio_intelligence", "defi_strategy", "market_pulse", "onchain_overview", "arbitrage_scanner", "liquidation_map"],
     }
 
@@ -3559,33 +3565,7 @@ async def privacy_policy():
     }
 
 
-@app.get("/.well-known/oauth-protected-resource")
-async def oauth_protected_resource():
-    """OAuth Protected Resource metadata (RFC 9728).
-    Declares that our MCP server uses no authentication for free tools.
-    Required for Anthropic Connector Directory compliance."""
-    return {
-        "resource": "https://agentservices.to/mcp",
-        "authorization_servers": [],
-        "bearer_methods_supported": [],
-        "resource_documentation": "https://agentservices.to/docs",
-        "resource_name": "AgentServices MCP Server",
-        "resource_description": "Free tools require no auth. Paid tools use x402 (HTTP 402) payment. No OAuth required for discovery or free tool access.",
-    }
-
-
-@app.get("/.well-known/oauth-authorization-server")
-async def oauth_authorization_server():
-    """OAuth Authorization Server metadata.
-    AgentServices does not operate an OAuth server — free tools are public, paid tools use x402."""
-    return {
-        "issuer": "https://agentservices.to",
-        "authorization_endpoint": None,
-        "token_endpoint": None,
-        "response_types_supported": [],
-        "grant_types_supported": [],
-        "note": "AgentServices does not use OAuth. Free tools are publicly accessible. Paid tools use x402 micropayments (HTTP 402).",
-    }
+# OAuth well-known endpoints are served by human_billing.router (Google OAuth when configured).
 
 
 # --- llms.txt (agent-accessible documentation index) ---

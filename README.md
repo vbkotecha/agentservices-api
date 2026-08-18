@@ -282,6 +282,49 @@ AgentServices includes an AI-powered dispute resolution system with 7 policy tem
 | `scope-dispute` | Project scope creep disputes |
 | `physical-commerce` | Physical goods transaction disputes |
 
+## Human billing door (ChatGPT / Claude)
+
+Wallet agents continue to pay via **x402 on REST** — unchanged. Humans connecting through ChatGPT Developer Mode or Claude custom connectors can use **Google OAuth + Stripe prepaid credits** on MCP.
+
+| Rail | Who | How |
+|------|-----|-----|
+| x402 | Wallet agents | Unauthenticated REST → HTTP 402 → USDC on Base |
+| Credits | Logged-in humans | Google OAuth on MCP → deduct same USD price from prepaid balance |
+
+**MCP URL for ChatGPT:** `https://agentservices.to/mcp`
+
+### Environment variables
+
+Copy [`.env.example`](.env.example). Required to enable the human door:
+
+| Variable | Purpose |
+|----------|---------|
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `OAUTH_JWT_SECRET` | Signs MCP bearer tokens (or use `SESSION_SECRET`) |
+| `STRIPE_SECRET_KEY` | Stripe API secret key |
+| `STRIPE_WEBHOOK_SECRET` | Verifies `checkout.session.completed` webhooks |
+| `STRIPE_PRICE_CREDITS_10` | Optional Stripe Price ID for $10 pack (otherwise hardcoded) |
+| `PUBLIC_BASE_URL` | Canonical host, e.g. `https://agentservices.to` |
+
+Without these vars the API boots in **x402-only mode** (existing behavior).
+
+### Google Cloud Console redirect URIs
+
+Add both hosts:
+
+- `https://agentservices.to/oauth/google/callback`
+- `https://api.agentservices.to/oauth/google/callback`
+
+### Stripe webhook
+
+Point Stripe to:
+
+- `https://agentservices.to/billing/webhook`
+- `https://api.agentservices.to/billing/webhook`
+
+Event: `checkout.session.completed`
+
 ## Discovery & Listings
 
 - [x402 Discovery](https://agentservices.to/.well-known/x402) — Live
