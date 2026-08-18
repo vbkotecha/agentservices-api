@@ -15,6 +15,8 @@ client = TestClient(app)
 REQUIRED_DISCOVERY_LOCS = [
     "https://agentservices.to/.well-known/llms.txt",
     "https://agentservices.to/.well-known/openapi.json",
+    "https://agentservices.to/schema.json",
+    "https://agentservices.to/.well-known/schema.json",
     "https://agentservices.to/server.json",
     "https://agentservices.to/mcp.json",
     "https://agentservices.to/agents.txt",

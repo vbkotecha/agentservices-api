@@ -1857,7 +1857,9 @@ async def sitemap_xml():
         "https://agentservices.to/.well-known/llms.txt",
         "https://agentservices.to/llms-full.txt",
         "https://agentservices.to/openapi.json",
+        "https://agentservices.to/schema.json",
         "https://agentservices.to/.well-known/openapi.json",
+        "https://agentservices.to/.well-known/schema.json",
         "https://agentservices.to/feed.json",
         "https://agentservices.to/server.json",
         "https://agentservices.to/mcp.json",
@@ -2298,9 +2300,10 @@ async def indexnow_key():
 
 
 @app.get("/schema.json")
+@app.get("/.well-known/schema.json", include_in_schema=False)
 @app.get("/.well-known/openapi.json", include_in_schema=False)
 async def openapi_schema():
-    """OpenAPI schema aliases for crawlers: /schema.json and /.well-known/openapi.json (same body as /openapi.json)."""
+    """OpenAPI schema aliases for crawlers: /schema.json, /.well-known/schema.json, /.well-known/openapi.json (same body as /openapi.json)."""
     return app.openapi()
 
 
