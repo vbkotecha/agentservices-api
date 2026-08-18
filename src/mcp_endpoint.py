@@ -553,61 +553,63 @@ MCP_RESOURCES = [
     }
 ]
 
-# Static server card for MCP discovery (Smithery, mcp-marketplace.io)
-SERVER_CARD = {
-    "serverInfo": {
-        "name": "AgentServices",
-        "version": "5.3.0",
-        "description": "Paid APIs for AI agents — 53 services, 41 paid. 37 MCP tools. Crypto, stocks, SEC, commodities, FX, inference, signals, extraction, security, portfolio intelligence, DeFi strategy, market pulse, on-chain overview. x402 on Base."
-    },
-    "transport": {
-        "type": "streamable-http",
-        "endpoint": "https://agentservices.to/mcp"
-    },
-    "pricing": {
-        "model": "pay-per-use",
-        "protocol": "x402 (HTTP 402)",
-        "currency": "USDC on Base",
-        "free_tools": ["crypto_prices", "fear_greed", "ip_geolocation", "list_policies", "agent_context"],
-        "paid_tools": {
-            "technical_indicators": "$0.02",
-            "defi_yields": "$0.02",
-            "url_metadata": "$0.01",
-            "resolve_dispute": "$0.05",
-            "whale_tracking": "$0.02",
-            "exchange_flows": "$0.02",
-            "correlation_matrix": "$0.03",
-            "defi_tvl": "$0.02",
-            "stablecoin_flows": "$0.02",
-            "github_velocity": "$0.02",
-            "macro_indicators": "$0.02"
-        }
-    },
-    "repository": "https://github.com/vbkotecha/agentservices-api",
-    "documentation": "https://agentservices.to/docs",
-    "tools": [{"name": t["name"], "description": t["description"]} for t in MCP_TOOLS]
-}
+from discovery_surfaces import MCP_URL, mcp_auth_metadata, mcp_pricing_metadata
+
+
+def build_server_card() -> dict:
+    """MCP server card for GEO/discovery crawlers (Smithery, ChatGPT, mcp-marketplace.io)."""
+    description = (
+        "Paid APIs for AI agents — 53 services, 41 paid. 37 MCP tools. "
+        "ChatGPT connector: Google OAuth + Stripe credits at "
+        f"{MCP_URL}. Wallet agents: x402 USDC on Base for REST."
+    )
+    card = {
+        "serverInfo": {
+            "name": "AgentServices",
+            "version": "5.3.0",
+            "description": description,
+        },
+        "transport": {
+            "type": "streamable-http",
+            "endpoint": MCP_URL,
+        },
+        "authentication": mcp_auth_metadata(),
+        "pricing": {
+            "model": "pay-per-use",
+            "protocol": "x402 (HTTP 402)",
+            "currency": "USDC on Base",
+            "rest": "Wallet agents pay via HTTP 402 on REST endpoints",
+            "free_tools": ["crypto_prices", "fear_greed", "ip_geolocation", "list_policies", "agent_context"],
+            "paid_tools": {
+                "technical_indicators": "$0.02",
+                "defi_yields": "$0.02",
+                "url_metadata": "$0.01",
+                "resolve_dispute": "$0.05",
+                "whale_tracking": "$0.02",
+                "exchange_flows": "$0.02",
+                "correlation_matrix": "$0.03",
+                "defi_tvl": "$0.02",
+                "stablecoin_flows": "$0.02",
+                "github_velocity": "$0.02",
+                "macro_indicators": "$0.02",
+            },
+        },
+        "repository": "https://github.com/vbkotecha/agentservices-api",
+        "documentation": "https://agentservices.to/docs",
+        "tools": [{"name": t["name"], "description": t["description"]} for t in MCP_TOOLS],
+    }
+    human_pricing = mcp_pricing_metadata().get("mcp_human")
+    if human_pricing:
+        card["pricing"]["mcp_human"] = human_pricing
+    return card
 
 
 def _mcp_auth_metadata() -> dict:
-    from human_billing.config import oauth_enabled, public_base_url
-    base = public_base_url()
-    if oauth_enabled():
-        return {
-            "type": "oauth2",
-            "note": "Google OAuth for humans in ChatGPT/Claude. Wallet agents use x402 on REST.",
-            "authorization_server": f"{base}/.well-known/oauth-authorization-server",
-            "protected_resource": f"{base}/.well-known/oauth-protected-resource",
-        }
-    return {"type": "none", "note": "Free tools require no auth. Paid REST uses x402 (HTTP 402) payment."}
+    return mcp_auth_metadata()
 
 
 def _mcp_pricing_metadata() -> dict:
-    from human_billing.config import credits_enabled
-    meta = {"protocol": "x402", "currency": "USDC", "chain": "base", "rest": "Wallet agents pay via HTTP 402"}
-    if credits_enabled():
-        meta["mcp_human"] = "Google OAuth + Stripe prepaid credits"
-    return meta
+    return mcp_pricing_metadata()
 
 
 @router.options("/mcp")
@@ -1054,12 +1056,12 @@ async def _execute_tool(tool_name: str, args: dict, request: Request | None = No
 @router.get("/mcp/tools")
 async def mcp_tools_summary():
     """Human-readable summary of MCP tools for discovery."""
-    return SERVER_CARD
+    return build_server_card()
 
 @router.get("/.well-known/mcp/server-card.json")
 async def mcp_server_card():
-    """Static MCP server card for registry discovery (Smithery, mcp-marketplace.io)."""
-    return SERVER_CARD
+    """MCP server card for registry discovery (Smithery, ChatGPT, mcp-marketplace.io)."""
+    return build_server_card()
 
 @router.get("/.well-known/mcp")
 async def mcp_well_known():

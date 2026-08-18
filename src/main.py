@@ -1616,18 +1616,8 @@ async def favicon():
 
 @app.get("/.well-known/ai-plugin.json")
 async def ai_plugin():
-    return {
-        "schema_version": "v1",
-        "name_for_model": "agentservices",
-        "name_for_human": "AgentServices",
-        "description_for_model": "Paid APIs for AI agents. Crypto, DeFi, stocks, FX, research, 37 MCP tools. x402 payments on Base.",
-        "description_for_human": "Financial data APIs for AI agents.",
-        "auth": {"type": "none"},
-        "api": {"type": "openapi", "url": "https://agentservices.to/openapi.json"},
-        "logo_url": "https://agentservices.to/favicon.ico",
-        "contact_email": "vbkotecha@gmail.com",
-        "legal_info_url": "https://agentservices.to/",
-    }
+    from discovery_surfaces import ai_plugin_manifest
+    return ai_plugin_manifest()
 
 
 @app.get("/skill.md")
@@ -1835,13 +1825,8 @@ async def agent_json():
 @app.get("/mcp.json", include_in_schema=False)
 async def mcp_well_known():
     """MCP discovery file for mcpub and other MCP directory crawlers."""
-    return {
-        "name": "AgentServices",
-        "version": "5.3.0",
-        "description": "50+ x402-paid crypto/market data APIs for AI agents. 37 MCP tools across 54 services.",
-        "mcp_endpoint": "https://agentservices.to/mcp",
-        "website": "https://agentservices.to",
-    }
+    from discovery_surfaces import mcp_json
+    return mcp_json()
 
 
 @app.get("/server.json", include_in_schema=False)
@@ -2612,24 +2597,6 @@ async def web_manifest():
         "display": "standalone",
         "categories": ["developer", "finance", "data"],
         "icons": [],
-    }
-
-
-@app.get("/.well-known/ai-plugin.json")
-async def ai_plugin_manifest():
-    """OpenAI plugin manifest for ChatGPT plugin discovery."""
-    return {
-        "schema_version": "v1",
-        "name_for_human": "AgentServices",
-        "name_for_model": "agentservices",
-        "description_for_human": "Paid APIs for AI agents — crypto data, market intelligence, DeFi analytics, on-chain analytics, search, and AI inference. Pay per request with USDC on Base.",
-        "description_for_model": "Access 50+ API endpoints for crypto prices, technical indicators, DeFi yields, on-chain analytics, whale tracking, market sentiment, web search, LLM inference, portfolio intelligence, and dispute resolution. Free endpoints need no payment. Paid endpoints use x402 protocol (USDC on Base).",
-        "auth": {"type": "none"},
-        "api": {"type": "openapi", "url": "https://agentservices.to/openapi.json"},
-        "logo_url": "https://agentservices.to/logo.png",
-        "contact_email": "vbkotecha@gmail.com",
-        "legal_info_url": "https://agentservices.to",
-        "url": "https://agentservices.to",
     }
 
 
@@ -3580,45 +3547,9 @@ async def privacy_policy():
 async def llms_txt():
     """Canonical index for AI agents and LLM crawlers. Follows the llms.txt convention."""
     from starlette.responses import PlainTextResponse
+    from discovery_surfaces import llms_txt_content
     live = _live_capability_summary()
-    return PlainTextResponse(content=f"""# AgentServices
-
-> Paid APIs for AI agents. {live['path_count']} live routes generated from the deployed OpenAPI schema. Data, search, market intelligence, inference, and ERC-8004 identity/reputation/evidence. Agents pay per call via x402 (USDC on Base).
-
-## Quick Start
-- Free endpoints: GET https://agentservices.to/v1/prices (crypto prices), GET https://agentservices.to/v1/fear-greed (market sentiment)
-- Paid endpoints: GET https://agentservices.to/v1/indicators/BTC (0.02 USDC), GET https://agentservices.to/v1/search?q=... (0.01 USDC)
-- MCP server: https://agentservices.to/mcp (37 tools, Streamable HTTP)
-- Full docs: https://agentservices.to/docs
-- OpenAPI spec: https://agentservices.to/openapi.json
-- Health check: https://agentservices.to/health
-- Task catalog: https://agentservices.to/v1/catalog/search?query=web+research
-- Tool contract: https://agentservices.to/v1/catalog/tools/research.web
-- Live capability schema: https://agentservices.to/openapi.json
-- ERC-8004 provider metadata: https://agentservices.to/v1/erc8004/provider
-- ERC-8004 agent discovery: https://agentservices.to/v1/erc8004/agents
-
-## Key Endpoints
-- [Crypto Prices](https://agentservices.to/v1/prices): Free. Real-time prices for 1000+ tokens.
-- [Technical Indicators](https://agentservices.to/v1/indicators/BTC): $0.02. RSI, MACD, Bollinger, ATR, volume analysis.
-- [DeFi Yields](https://agentservices.to/v1/yields): $0.02. Yield farming opportunities across protocols.
-- [Search](https://agentservices.to/v1/search): $0.01. Web search with structured extraction.
-- [Market Pulse](https://agentservices.to/v1/market-pulse): $0.05. Sentiment + trending + news + whales in one call.
-- [On-Chain Overview](https://agentservices.to/v1/onchain-overview): $0.15. Whales + flows + correlation + TVL.
-- [Portfolio Intelligence](https://agentservices.to/v1/portfolio): $0.10. Price + signal + risk + sentiment bundled.
-- [DeFi Strategy](https://agentservices.to/v1/defi-strategy): $0.25. Full strategy report with recommendations.
-
-## Payment
-- Protocol: x402 (HTTP 402 Payment Required)
-- Asset: USDC on Base (eip155:8453)
-- Wallet: 0x9863aB6242663FCc84c33632741711dB78f8Fd15
-- No API keys, no accounts, no subscriptions
-
-## Integration
-- MCP: Add https://agentservices.to/mcp to your MCP client
-- Python SDK: pip install agentservices
-- npm: npx agentservices-mcp
-""", media_type="text/plain")
+    return PlainTextResponse(content=llms_txt_content(live["path_count"]), media_type="text/plain")
 
 
 # --- agents.txt (agent instructions) ---
@@ -3628,37 +3559,9 @@ async def llms_txt():
 async def agents_txt():
     """Instructions for AI agents crawling or using AgentServices."""
     from starlette.responses import PlainTextResponse
+    from discovery_surfaces import agents_txt_content
     live = _live_capability_summary()
-    return PlainTextResponse(content=f"""# AgentServices — Agent Instructions
-
-## What This Service Does
-AgentServices provides paid API endpoints for AI agents. The deployed schema currently exposes {live['path_count']} routes covering crypto market data, on-chain analytics, DeFi intelligence, market sentiment, stock data, web extraction, AI inference, and ERC-8004 identity/reputation/evidence.
-
-## How to Pay
-1. Make a GET/POST request to any paid endpoint
-2. Server responds with HTTP 402 + payment details (x402 protocol)
-3. Sign payment with your wallet (USDC on Base)
-4. Retry request with payment proof in header
-5. Server verifies on-chain and returns data
-
-## Free Endpoints (no payment needed)
-- GET /v1/prices — Crypto prices
-- GET /v1/fear-greed — Fear & Greed index
-- GET /v1/trending — Trending tokens
-- GET /v1/gas — Gas prices
-- GET /v1/news — Crypto news
-- GET /v1/global — Global market stats
-
-## MCP Server
-Endpoint: https://agentservices.to/mcp
-Transport: Streamable HTTP
-Tools: 38 (free + paid)
-Auth: None for free tools. Paid tools use x402.
-
-## Contact
-Email: hustlemode@agentmail.to
-Website: https://agentservices.to
-""", media_type="text/plain")
+    return PlainTextResponse(content=agents_txt_content(live["path_count"]), media_type="text/plain")
 
 
 # --- agents.json (structured agent discovery per agents-txt spec) ---
