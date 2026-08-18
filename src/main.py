@@ -1579,8 +1579,7 @@ async def api_discovery():
 
 @app.get("/health")
 async def health():
-    from human_billing.config import oauth_enabled, credits_enabled, human_door_enabled, redis_url
-    from human_billing.storage import durable_storage_available
+    from human_billing.config import oauth_enabled, credits_enabled, human_door_enabled
     return {
         "status": "ok",
         "version": "5.3.0",
@@ -1596,8 +1595,7 @@ async def health():
         "human_door_enabled": human_door_enabled(),
         "oauth_enabled": oauth_enabled(),
         "credits_enabled": credits_enabled(),
-        "durable_storage": durable_storage_available(),
-        "redis_configured": bool(redis_url()),
+        "billing_ledger": "stripe_customer_balance",
         "services": ["crypto_prices", "indicators", "defi_yields", "fear_greed", "geo", "metadata", "search", "swap_quote", "trending", "gas", "predictions", "news", "social_trending", "global", "disputes", "policies", "marketing_sentiment", "marketing_trends", "marketing_competitors", "marketing_content_gaps", "marketing_ad_copy", "whales", "exchange_flows", "correlation", "defi_tvl", "stablecoin_flows", "github_velocity", "agent_context", "macro", "inference", "quick_complete", "token_risk", "crypto_signals", "hn_sentiment", "npm_stats", "github_trending", "yield_comparison", "stock_quote", "stock_history", "sec_filings", "commodities", "economic_indicators", "fx_rates", "web_extract", "package_security", "seo_keywords", "deep_research", "portfolio_intelligence", "defi_strategy", "market_pulse", "onchain_overview", "arbitrage_scanner", "liquidation_map"],
     }
 

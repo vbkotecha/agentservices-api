@@ -1,6 +1,4 @@
 """FastAPI routes for OAuth, Stripe billing, and minimal success/cancel pages."""
-import secrets
-import time
 import urllib.parse
 from typing import Any
 
@@ -13,38 +11,19 @@ from human_billing.oauth import (
     authorization_server_metadata,
     build_google_auth_url,
     create_access_token,
+    create_authorization_code_token,
+    create_oauth_state_token,
     exchange_google_code,
     extract_bearer_token,
-    new_state,
     protected_resource_metadata,
     verify_access_token,
+    verify_authorization_code_token,
+    verify_oauth_state_token,
     verify_pkce,
 )
-from human_billing.storage import OAUTH_PENDING_TTL_SECONDS, get_store
 from human_billing.stripe_billing import create_checkout_session, handle_webhook
 
 router = APIRouter(tags=["Human Billing"])
-
-OAUTH_PENDING_PREFIX = "oauth:pending:"
-
-
-def _pending_key(state: str) -> str:
-    return f"{OAUTH_PENDING_PREFIX}{state}"
-
-
-def _save_pending(state: str, data: dict) -> None:
-    data["created_at"] = time.time()
-    get_store().set_json(_pending_key(state), data, ttl_seconds=OAUTH_PENDING_TTL_SECONDS)
-
-
-def _pop_pending(state: str) -> dict | None:
-    store = get_store()
-    data = store.pop_json(_pending_key(state))
-    if not data:
-        return None
-    if time.time() - data.get("created_at", 0) > OAUTH_PENDING_TTL_SECONDS:
-        return None
-    return data
 
 
 @router.get("/.well-known/oauth-authorization-server")
@@ -62,6 +41,9 @@ async def oauth_register(request: Request):
     """Minimal dynamic client registration for MCP connectors."""
     if not oauth_enabled():
         raise HTTPException(503, "OAuth is not configured")
+    import secrets
+    import time
+
     body = await request.json()
     client_id = secrets.token_urlsafe(16)
     return {
@@ -92,15 +74,14 @@ async def oauth_authorize(
     if not redirect_uri:
         raise HTTPException(400, "redirect_uri is required")
 
-    oauth_state = new_state()
-    _save_pending(oauth_state, {
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
-        "state": state,
-        "scope": scope,
-        "code_challenge": code_challenge,
-        "code_challenge_method": code_challenge_method or "S256",
-    })
+    oauth_state = create_oauth_state_token(
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        state=state,
+        scope=scope,
+        code_challenge=code_challenge,
+        code_challenge_method=code_challenge_method or "S256",
+    )
     return RedirectResponse(build_google_auth_url(state=oauth_state))
 
 
@@ -111,19 +92,18 @@ async def oauth_google_callback(code: str = "", state: str = "", error: str = ""
     if error:
         raise HTTPException(400, f"Google OAuth error: {error}")
 
-    pending = _pop_pending(state)
+    pending = verify_oauth_state_token(state)
     if not pending:
         raise HTTPException(400, "Invalid or expired OAuth state")
 
     user = exchange_google_code(code)
-    auth_code = secrets.token_urlsafe(32)
-    _save_pending(auth_code, {
-        "user": user,
-        "client_id": pending.get("client_id", ""),
-        "redirect_uri": pending.get("redirect_uri", ""),
-        "code_challenge": pending.get("code_challenge", ""),
-        "code_challenge_method": pending.get("code_challenge_method", "S256"),
-    })
+    auth_code = create_authorization_code_token(
+        user=user,
+        client_id=pending.get("client_id", ""),
+        redirect_uri=pending.get("redirect_uri", ""),
+        code_challenge=pending.get("code_challenge", ""),
+        code_challenge_method=pending.get("code_challenge_method", "S256"),
+    )
 
     params = {"code": auth_code}
     if pending.get("state"):
@@ -146,7 +126,7 @@ async def oauth_token(
     if grant_type != "authorization_code":
         raise HTTPException(400, "Unsupported grant_type")
 
-    pending = _pop_pending(code)
+    pending = verify_authorization_code_token(code)
     if not pending:
         raise HTTPException(400, "Invalid or expired authorization code")
 

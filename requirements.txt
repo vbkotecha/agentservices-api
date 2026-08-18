@@ -6,4 +6,3 @@ x402[fastapi,httpx,evm,extensions,svm]
 cryptography>=41.0.0
 stripe>=8.0.0
 python-multipart>=0.0.9
-redis>=5.0.0

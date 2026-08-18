@@ -24,6 +24,96 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 OAUTH_SCOPES = "openid email profile"
 TOKEN_TTL_SECONDS = 3600 * 24 * 30  # 30 days
+OAUTH_PENDING_TTL_SECONDS = 600
+
+
+def _sign_payload(payload: dict[str, Any]) -> str:
+    header = {"alg": "HS256", "typ": "JWT"}
+    header_b64 = _b64url_encode(json.dumps(header, separators=(",", ":")).encode())
+    payload_b64 = _b64url_encode(json.dumps(payload, separators=(",", ":")).encode())
+    signing_input = f"{header_b64}.{payload_b64}".encode()
+    sig = hmac.new(oauth_jwt_secret().encode(), signing_input, hashlib.sha256).digest()
+    return f"{header_b64}.{payload_b64}.{_b64url_encode(sig)}"
+
+
+def _verify_signed_payload(token: str, *, purpose: str) -> dict[str, Any] | None:
+    if not oauth_enabled() or not token:
+        return None
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+    header_b64, payload_b64, sig_b64 = parts
+    signing_input = f"{header_b64}.{payload_b64}".encode()
+    expected = hmac.new(oauth_jwt_secret().encode(), signing_input, hashlib.sha256).digest()
+    try:
+        actual = _b64url_decode(sig_b64)
+    except Exception:
+        return None
+    if not hmac.compare_digest(expected, actual):
+        return None
+    try:
+        payload = json.loads(_b64url_decode(payload_b64))
+    except Exception:
+        return None
+    if payload.get("exp", 0) < time.time():
+        return None
+    if payload.get("purpose") != purpose:
+        return None
+    return payload
+
+
+def create_oauth_state_token(
+    *,
+    client_id: str,
+    redirect_uri: str,
+    state: str,
+    scope: str,
+    code_challenge: str,
+    code_challenge_method: str,
+) -> str:
+    """Signed OAuth state blob passed through Google (no server-side store)."""
+    now = int(time.time())
+    return _sign_payload({
+        "purpose": "oauth_state",
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "state": state,
+        "scope": scope,
+        "code_challenge": code_challenge,
+        "code_challenge_method": code_challenge_method or "S256",
+        "iat": now,
+        "exp": now + OAUTH_PENDING_TTL_SECONDS,
+    })
+
+
+def verify_oauth_state_token(token: str) -> dict[str, Any] | None:
+    return _verify_signed_payload(token, purpose="oauth_state")
+
+
+def create_authorization_code_token(
+    *,
+    user: dict[str, Any],
+    client_id: str,
+    redirect_uri: str,
+    code_challenge: str,
+    code_challenge_method: str,
+) -> str:
+    """Signed authorization code returned to the MCP client (no server-side store)."""
+    now = int(time.time())
+    return _sign_payload({
+        "purpose": "auth_code",
+        "user": user,
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "code_challenge": code_challenge,
+        "code_challenge_method": code_challenge_method or "S256",
+        "iat": now,
+        "exp": now + OAUTH_PENDING_TTL_SECONDS,
+    })
+
+
+def verify_authorization_code_token(token: str) -> dict[str, Any] | None:
+    return _verify_signed_payload(token, purpose="auth_code")
 
 
 def authorization_server_metadata() -> dict[str, Any]:
