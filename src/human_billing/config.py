@@ -39,12 +39,17 @@ def credits_storage_dir() -> str:
     return os.environ.get("AGENTSERVICES_CREDITS_DIR", "")
 
 
+def redis_url() -> str:
+    return os.environ.get("REDIS_URL", "")
+
+
 def oauth_enabled() -> bool:
     return bool(google_client_id() and google_client_secret() and oauth_jwt_secret())
 
 
 def credits_enabled() -> bool:
-    return bool(stripe_secret_key() and oauth_enabled())
+    from human_billing.storage import durable_storage_available
+    return bool(stripe_secret_key() and oauth_enabled() and durable_storage_available())
 
 
 def human_door_enabled() -> bool:

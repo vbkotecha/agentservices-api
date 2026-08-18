@@ -1,13 +1,11 @@
 """FastAPI routes for OAuth, Stripe billing, and minimal success/cancel pages."""
-import json
 import secrets
 import time
 import urllib.parse
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from human_billing.config import credits_enabled, oauth_enabled, public_base_url
 from human_billing.credits import get_balance
@@ -20,39 +18,31 @@ from human_billing.oauth import (
     new_state,
     protected_resource_metadata,
     verify_access_token,
+    verify_pkce,
 )
+from human_billing.storage import OAUTH_PENDING_TTL_SECONDS, get_store
 from human_billing.stripe_billing import create_checkout_session, handle_webhook
 
 router = APIRouter(tags=["Human Billing"])
 
-# In-memory pending OAuth flows (also persisted for serverless warm instances)
-_PENDING_DIR: Path | None = None
+OAUTH_PENDING_PREFIX = "oauth:pending:"
 
 
-def _pending_dir() -> Path:
-    global _PENDING_DIR
-    if _PENDING_DIR is None:
-        d = Path("/tmp/agentservices-oauth-pending")
-        d.mkdir(parents=True, exist_ok=True)
-        _PENDING_DIR = d
-    return _PENDING_DIR
+def _pending_key(state: str) -> str:
+    return f"{OAUTH_PENDING_PREFIX}{state}"
 
 
 def _save_pending(state: str, data: dict) -> None:
-    path = _pending_dir() / f"{state}.json"
     data["created_at"] = time.time()
-    with open(path, "w") as f:
-        json.dump(data, f)
+    get_store().set_json(_pending_key(state), data, ttl_seconds=OAUTH_PENDING_TTL_SECONDS)
 
 
 def _pop_pending(state: str) -> dict | None:
-    path = _pending_dir() / f"{state}.json"
-    if not path.exists():
+    store = get_store()
+    data = store.pop_json(_pending_key(state))
+    if not data:
         return None
-    with open(path) as f:
-        data = json.load(f)
-    path.unlink(missing_ok=True)
-    if time.time() - data.get("created_at", 0) > 600:
+    if time.time() - data.get("created_at", 0) > OAUTH_PENDING_TTL_SECONDS:
         return None
     return data
 
@@ -109,7 +99,7 @@ async def oauth_authorize(
         "state": state,
         "scope": scope,
         "code_challenge": code_challenge,
-        "code_challenge_method": code_challenge_method,
+        "code_challenge_method": code_challenge_method or "S256",
     })
     return RedirectResponse(build_google_auth_url(state=oauth_state))
 
@@ -132,7 +122,7 @@ async def oauth_google_callback(code: str = "", state: str = "", error: str = ""
         "client_id": pending.get("client_id", ""),
         "redirect_uri": pending.get("redirect_uri", ""),
         "code_challenge": pending.get("code_challenge", ""),
-        "code_challenge_method": pending.get("code_challenge_method", ""),
+        "code_challenge_method": pending.get("code_challenge_method", "S256"),
     })
 
     params = {"code": auth_code}
@@ -162,6 +152,14 @@ async def oauth_token(
 
     if redirect_uri and pending.get("redirect_uri") and redirect_uri != pending["redirect_uri"]:
         raise HTTPException(400, "redirect_uri mismatch")
+
+    challenge = pending.get("code_challenge", "")
+    if challenge and not verify_pkce(
+        challenge,
+        pending.get("code_challenge_method", "S256"),
+        code_verifier,
+    ):
+        raise HTTPException(400, "Invalid PKCE code_verifier")
 
     user = pending["user"]
     access_token = create_access_token(user, client_id=client_id or pending.get("client_id", ""))

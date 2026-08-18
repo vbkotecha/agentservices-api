@@ -188,3 +188,20 @@ def extract_bearer_token(authorization: str | None) -> str | None:
 
 def new_state() -> str:
     return secrets.token_urlsafe(32)
+
+
+def verify_pkce(code_challenge: str, code_challenge_method: str, code_verifier: str) -> bool:
+    """Verify PKCE per RFC 7636. If challenge was sent, verifier is mandatory."""
+    if not code_challenge:
+        return True
+    if not code_verifier:
+        return False
+
+    method = (code_challenge_method or "S256").upper()
+    if method == "S256":
+        digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+        expected = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+        return hmac.compare_digest(expected, code_challenge)
+    if method == "PLAIN":
+        return hmac.compare_digest(code_verifier, code_challenge)
+    return False

@@ -21,6 +21,7 @@ MCP_TOOL_PRICES: dict[str, Decimal] = {
     "technical_indicators": Decimal("0.02"),
     "defi_yields": Decimal("0.02"),
     "url_metadata": Decimal("0.01"),
+    "web_search": Decimal("0.01"),
     "resolve_dispute": Decimal("0.05"),
     "whale_tracking": Decimal("0.02"),
     "exchange_flows": Decimal("0.02"),

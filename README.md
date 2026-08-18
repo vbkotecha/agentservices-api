@@ -306,8 +306,9 @@ Copy [`.env.example`](.env.example). Required to enable the human door:
 | `STRIPE_WEBHOOK_SECRET` | Verifies `checkout.session.completed` webhooks |
 | `STRIPE_PRICE_CREDITS_10` | Optional Stripe Price ID for $10 pack (otherwise hardcoded) |
 | `PUBLIC_BASE_URL` | Canonical host, e.g. `https://agentservices.to` |
+| `REDIS_URL` | **Required on Vercel.** Upstash-compatible Redis URL for credits + OAuth state |
 
-Without these vars the API boots in **x402-only mode** (existing behavior).
+Without Google/Stripe vars the API boots in **x402-only mode**. Without `REDIS_URL` on Vercel, OAuth may work but credits billing stays disabled.
 
 ### Google Cloud Console redirect URIs
 

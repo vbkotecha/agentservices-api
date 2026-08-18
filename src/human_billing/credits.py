@@ -1,50 +1,17 @@
-"""Prepaid credit ledger — file-backed, one balance per Google user."""
+"""Prepaid credit ledger backed by durable KV storage (Redis or local file)."""
 import hashlib
-import json
-import os
 import re
 import threading
 import time
 from decimal import Decimal, ROUND_HALF_UP
-from pathlib import Path
 
-from human_billing.config import credits_storage_dir
+from human_billing.storage import get_store
 
-_CREDITS_DIR: Path | None = None
 _LOCK = threading.Lock()
 _MONEY_QUANT = Decimal("0.000001")
 
-
-def _is_serverless() -> bool:
-    return any(
-        os.environ.get(name)
-        for name in ("VERCEL", "VERCEL_ENV", "AWS_LAMBDA_FUNCTION_NAME", "AWS_EXECUTION_ENV")
-    )
-
-
-def _default_credits_dir() -> Path:
-    override = credits_storage_dir()
-    if override:
-        return Path(override)
-    if _is_serverless():
-        return Path("/tmp/agentservices-credits")
-    return Path("/tmp/agentservices-credits")
-
-
-def _credits_dir() -> Path:
-    global _CREDITS_DIR
-    if _CREDITS_DIR is not None:
-        return _CREDITS_DIR
-
-    for candidate in (_default_credits_dir(), Path("/tmp/agentservices-credits")):
-        try:
-            candidate.mkdir(parents=True, exist_ok=True)
-            _CREDITS_DIR = candidate
-            return _CREDITS_DIR
-        except OSError:
-            continue
-
-    raise OSError("No writable directory available for credit storage")
+ACCOUNT_PREFIX = "credits:account:"
+WEBHOOK_PREFIX = "credits:webhook:"
 
 
 def _user_key(google_sub: str) -> str:
@@ -52,12 +19,8 @@ def _user_key(google_sub: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_\-]", "_", safe)
 
 
-def _balance_path(google_sub: str) -> Path:
-    return _credits_dir() / f"{_user_key(google_sub)}.json"
-
-
-def _webhook_path() -> Path:
-    return _credits_dir() / "_stripe_sessions.json"
+def _account_key(google_sub: str) -> str:
+    return f"{ACCOUNT_PREFIX}{_user_key(google_sub)}"
 
 
 def _quantize(amount: Decimal) -> Decimal:
@@ -65,23 +28,21 @@ def _quantize(amount: Decimal) -> Decimal:
 
 
 def _load_account(google_sub: str) -> dict:
-    path = _balance_path(google_sub)
-    if not path.exists():
+    store = get_store()
+    account = store.get_json(_account_key(google_sub))
+    if not account:
         return {
             "google_sub": google_sub,
             "balance_usd": "0",
             "updated_at": time.time(),
             "transactions": [],
         }
-    with open(path) as f:
-        return json.load(f)
+    return account
 
 
 def _save_account(account: dict) -> None:
     account["updated_at"] = time.time()
-    path = _balance_path(account["google_sub"])
-    with open(path, "w") as f:
-        json.dump(account, f)
+    get_store().set_json(_account_key(account["google_sub"]), account)
 
 
 def get_balance(google_sub: str) -> Decimal:
@@ -97,7 +58,9 @@ def credit_balance(google_sub: str, amount_usd: Decimal, *, reference: str, sour
         raise ValueError("credit amount must be positive")
 
     with _LOCK:
-        if _webhook_already_processed(reference):
+        store = get_store()
+        webhook_key = f"{WEBHOOK_PREFIX}{reference}"
+        if store.get(webhook_key):
             return _quantize(Decimal(_load_account(google_sub).get("balance_usd", "0")))
 
         account = _load_account(google_sub)
@@ -111,12 +74,16 @@ def credit_balance(google_sub: str, amount_usd: Decimal, *, reference: str, sour
             "at": time.time(),
         })
         _save_account(account)
-        _mark_webhook_processed(reference, google_sub, str(amount_usd))
+        store.set_json(webhook_key, {
+            "google_sub": google_sub,
+            "amount_usd": str(amount_usd),
+            "at": time.time(),
+        })
         return balance
 
 
 def debit_balance(google_sub: str, amount_usd: Decimal, *, tool: str) -> Decimal:
-    """Deduct credits for a paid MCP tool call. Raises InsufficientCredits if too low."""
+    """Deduct credits for a successful paid MCP tool call."""
     amount_usd = _quantize(Decimal(str(amount_usd)))
     if amount_usd <= 0:
         raise ValueError("debit amount must be positive")
@@ -139,32 +106,13 @@ def debit_balance(google_sub: str, amount_usd: Decimal, *, tool: str) -> Decimal
         return balance
 
 
+def has_sufficient_balance(google_sub: str, amount_usd: Decimal) -> bool:
+    balance = get_balance(google_sub)
+    return balance >= _quantize(Decimal(str(amount_usd)))
+
+
 class InsufficientCredits(Exception):
     def __init__(self, balance: Decimal, required: Decimal):
         self.balance = balance
         self.required = required
         super().__init__(f"Insufficient credits: have ${balance}, need ${required}")
-
-
-def _webhook_already_processed(session_id: str) -> bool:
-    path = _webhook_path()
-    if not path.exists():
-        return False
-    with open(path) as f:
-        data = json.load(f)
-    return session_id in data.get("processed", {})
-
-
-def _mark_webhook_processed(session_id: str, google_sub: str, amount_usd: str) -> None:
-    path = _webhook_path()
-    data = {"processed": {}}
-    if path.exists():
-        with open(path) as f:
-            data = json.load(f)
-    data.setdefault("processed", {})[session_id] = {
-        "google_sub": google_sub,
-        "amount_usd": amount_usd,
-        "at": time.time(),
-    }
-    with open(path, "w") as f:
-        json.dump(data, f)

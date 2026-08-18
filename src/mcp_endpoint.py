@@ -91,6 +91,20 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "web_search",
+        "description": "Web search with structured results — same as GET /v1/search ($0.01 x402)",
+        "title": "Web Search",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "q": {"type": "string", "description": "Search query"},
+                "num_results": {"type": "integer", "description": "Max results", "default": 5}
+            },
+            "required": ["q"]
+        }
+    },
+    {
         "name": "resolve_dispute",
         "description": "Submit a dispute for AI-powered policy-driven ruling. 7 policy templates available ($0.05 x402)",
         "title": "AI Dispute Resolution",
@@ -723,11 +737,15 @@ async def mcp_handler(request: Request):
         tool_name = params.get("name", "")
         args = params.get("arguments", {})
 
-        billing_error = _check_billing(request, tool_name, req_id)
+        billing_ctx, billing_error = _prepare_billing(request, tool_name, req_id)
         if billing_error:
             return JSONResponse(billing_error, status_code=402)
 
         result = await _execute_tool(tool_name, args, request)
+
+        if billing_ctx:
+            _finalize_billing(billing_ctx, result)
+
         return {
             "jsonrpc": "2.0",
             "id": req_id,
@@ -756,21 +774,25 @@ async def mcp_handler(request: Request):
     )
 
 
-def _check_billing(request: Request, tool_name: str, req_id):
-    """Enforce prepaid credits for authenticated human MCP users on paid tools."""
+def _is_tool_failure(result) -> bool:
+    return isinstance(result, dict) and bool(result.get("error"))
+
+
+def _prepare_billing(request: Request, tool_name: str, req_id):
+    """Check auth and balance for paid MCP tools. Debit happens after success."""
     from human_billing.pricing import is_paid_mcp_tool, tool_price_usd
     from human_billing.router import authenticate_mcp_request
     from human_billing.config import credits_enabled, oauth_enabled
-    from human_billing.credits import debit_balance, InsufficientCredits
+    from human_billing.credits import get_balance, InsufficientCredits
     from human_billing.stripe_billing import create_checkout_session
 
     if not is_paid_mcp_tool(tool_name):
-        return None
+        return None, None
 
     user = authenticate_mcp_request(request)
     if not user:
         if oauth_enabled():
-            return {
+            return None, {
                 "jsonrpc": "2.0",
                 "id": req_id,
                 "error": {
@@ -778,10 +800,10 @@ def _check_billing(request: Request, tool_name: str, req_id):
                     "message": "Authentication required for paid MCP tools. Connect via Google OAuth in ChatGPT.",
                 },
             }
-        return None
+        return None, None
 
     if not credits_enabled():
-        return {
+        return None, {
             "jsonrpc": "2.0",
             "id": req_id,
             "error": {
@@ -791,14 +813,14 @@ def _check_billing(request: Request, tool_name: str, req_id):
         }
 
     price = tool_price_usd(tool_name)
-    try:
-        debit_balance(user["sub"], price, tool=tool_name)
-    except InsufficientCredits as exc:
+    balance = get_balance(user["sub"])
+    if balance < price:
+        exc = InsufficientCredits(balance, price)
         checkout = create_checkout_session(
             google_sub=user["sub"],
             email=user.get("email", ""),
         )
-        return {
+        return None, {
             "jsonrpc": "2.0",
             "id": req_id,
             "error": {
@@ -814,7 +836,21 @@ def _check_billing(request: Request, tool_name: str, req_id):
                 },
             },
         }
-    return None
+
+    return {"user": user, "price": price, "tool": tool_name}, None
+
+
+def _finalize_billing(billing_ctx: dict, result) -> None:
+    """Debit credits only after a successful tool execution."""
+    from human_billing.credits import debit_balance
+
+    if _is_tool_failure(result):
+        return
+    debit_balance(
+        billing_ctx["user"]["sub"],
+        billing_ctx["price"],
+        tool=billing_ctx["tool"],
+    )
 
 
 async def _execute_tool(tool_name: str, args: dict, request: Request | None = None):
@@ -879,6 +915,13 @@ async def _execute_tool(tool_name: str, args: dict, request: Request | None = No
             from web_data import get_url_metadata
             url = args.get("url", "")
             return get_url_metadata(url)
+
+        elif tool_name == "web_search":
+            from search_data import web_search
+            q = args.get("q", "")
+            if not q:
+                return {"error": "Missing required argument: q"}
+            return web_search(q, num_results=min(int(args.get("num_results", 5)), 10))
 
         elif tool_name == "resolve_dispute":
             from engine.policy_engine import evaluate_dispute

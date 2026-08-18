@@ -1,6 +1,6 @@
-"""Tests for human billing door: credits, OAuth discovery, webhook, x402 unchanged."""
+"""Tests for human billing door: credits, OAuth discovery, PKCE, webhook, x402 unchanged."""
 import base64
-import importlib
+import hashlib
 import json
 import os
 import sys
@@ -22,15 +22,22 @@ def _decode_payment_header(headers) -> dict:
     return json.loads(base64.b64decode(raw))
 
 
+def _pkce_challenge(verifier: str) -> str:
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
 @pytest.fixture()
 def credits_dir(tmp_path):
-    d = tmp_path / "credits"
+    d = tmp_path / "kv"
     d.mkdir()
     return d
 
 
 @pytest.fixture()
 def human_billing_env(credits_dir):
+    from human_billing.storage import FileKVStore, reset_store_for_tests
+
     env = {
         "VERCEL": "1",
         "CDP_API_KEY_ID": "",
@@ -42,17 +49,22 @@ def human_billing_env(credits_dir):
         "STRIPE_WEBHOOK_SECRET": "whsec_test_fake",
         "PUBLIC_BASE_URL": "https://agentservices.to",
         "AGENTSERVICES_CREDITS_DIR": str(credits_dir),
+        "REDIS_URL": "",
     }
     modules = [
         name for name in list(sys.modules)
         if name in ("main", "index", "mcp_endpoint", "human_billing.config", "human_billing.credits",
-                     "human_billing.oauth", "human_billing.router", "human_billing.stripe_billing")
+                     "human_billing.oauth", "human_billing.router", "human_billing.stripe_billing",
+                     "human_billing.storage")
         or name.startswith("human_billing")
     ]
     for name in modules:
         sys.modules.pop(name, None)
+
+    reset_store_for_tests(FileKVStore(credits_dir))
     with patch.dict(os.environ, env, clear=False):
         yield env
+    reset_store_for_tests(None)
 
 
 @pytest.fixture()
@@ -65,6 +77,34 @@ def client(human_billing_env):
 def auth_token(human_billing_env):
     from human_billing.oauth import create_access_token
     return create_access_token({"sub": "google-user-123", "email": "test@example.com", "name": "Test"})
+
+
+def test_durable_credit_roundtrip_file_backend(credits_dir):
+    from human_billing.storage import FileKVStore, reset_store_for_tests
+    from human_billing.credits import credit_balance, get_balance, debit_balance
+
+    reset_store_for_tests(FileKVStore(credits_dir))
+    credit_balance("user-roundtrip", Decimal("5"), reference="ref-1", source="test")
+    assert get_balance("user-roundtrip") == Decimal("5")
+    debit_balance("user-roundtrip", Decimal("0.01"), tool="web_search")
+    assert get_balance("user-roundtrip") == Decimal("4.99")
+
+    reset_store_for_tests(FileKVStore(credits_dir))
+    assert get_balance("user-roundtrip") == Decimal("4.99")
+
+
+@pytest.mark.skipif(not os.environ.get("REDIS_URL"), reason="REDIS_URL not set")
+def test_durable_credit_roundtrip_redis():
+    from human_billing.storage import reset_store_for_tests, get_store
+    from human_billing.credits import credit_balance, get_balance
+
+    reset_store_for_tests(None)
+    store = get_store()
+    assert store.__class__.__name__ == "RedisKVStore"
+
+    sub = "redis-roundtrip-user"
+    credit_balance(sub, Decimal("3"), reference="redis-ref-1", source="test")
+    assert get_balance(sub) == Decimal("3")
 
 
 def test_credit_deduct_on_paid_mcp_tool(client, auth_token, credits_dir):
@@ -89,6 +129,50 @@ def test_credit_deduct_on_paid_mcp_tool(client, auth_token, credits_dir):
     assert balance == Decimal("0.997")
 
 
+def test_failed_tool_does_not_debit(client, auth_token):
+    from human_billing.credits import credit_balance, get_balance
+
+    credit_balance("google-user-123", Decimal("1.00"), reference="setup2", source="test")
+
+    with patch("crypto_data.get_indicators", return_value={"error": "upstream failed"}):
+        response = client.post(
+            "/mcp",
+            headers={"Authorization": f"Bearer {auth_token}"},
+            json={"jsonrpc": "2.0", "id": 10, "method": "tools/call", "params": {
+                "name": "technical_indicators",
+                "arguments": {"symbol": "BTC"},
+            }},
+        )
+
+    assert response.status_code == 200, response.text
+    text = response.json()["result"]["content"][0]["text"]
+    assert "upstream failed" in text
+    assert get_balance("google-user-123") == Decimal("1.00")
+
+
+def test_web_search_tool_exists_and_is_billed(client, auth_token):
+    from human_billing.credits import credit_balance, get_balance
+
+    tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 20, "method": "tools/list"}).json()
+    tool_names = [t["name"] for t in tools["result"]["tools"]]
+    assert "web_search" in tool_names
+
+    credit_balance("google-user-123", Decimal("1.00"), reference="setup3", source="test")
+
+    with patch("search_data.web_search", return_value={"query": "btc", "results": [{"title": "BTC"}]}):
+        response = client.post(
+            "/mcp",
+            headers={"Authorization": f"Bearer {auth_token}"},
+            json={"jsonrpc": "2.0", "id": 21, "method": "tools/call", "params": {
+                "name": "web_search",
+                "arguments": {"q": "btc etf"},
+            }},
+        )
+
+    assert response.status_code == 200, response.text
+    assert get_balance("google-user-123") == Decimal("0.99")
+
+
 def test_insufficient_credits_returns_checkout_url(client, auth_token):
     with patch("human_billing.stripe_billing.create_checkout_session") as mock_checkout:
         mock_checkout.return_value = {
@@ -109,6 +193,82 @@ def test_insufficient_credits_returns_checkout_url(client, auth_token):
     assert body["error"]["code"] == -32001
     assert "checkout.stripe.com" in body["error"]["data"]["checkout_url"]
     assert body["error"]["data"]["required_usd"] == "0.02"
+
+
+def test_pkce_rejects_missing_verifier(client, human_billing_env):
+    from human_billing.router import _save_pending
+
+    verifier = "test-verifier-abc123"
+    challenge = _pkce_challenge(verifier)
+    _save_pending("auth-code-1", {
+        "user": {"sub": "pkce-user", "email": "pkce@test.com"},
+        "client_id": "chatgpt",
+        "redirect_uri": "https://chatgpt.com/callback",
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+    })
+
+    response = client.post(
+        "/oauth/token",
+        data={
+            "grant_type": "authorization_code",
+            "code": "auth-code-1",
+            "redirect_uri": "https://chatgpt.com/callback",
+        },
+    )
+    assert response.status_code == 400
+    assert "PKCE" in response.json()["detail"]
+
+
+def test_pkce_rejects_wrong_verifier(client, human_billing_env):
+    from human_billing.router import _save_pending
+
+    challenge = _pkce_challenge("correct-verifier")
+    _save_pending("auth-code-2", {
+        "user": {"sub": "pkce-user", "email": "pkce@test.com"},
+        "client_id": "chatgpt",
+        "redirect_uri": "https://chatgpt.com/callback",
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+    })
+
+    response = client.post(
+        "/oauth/token",
+        data={
+            "grant_type": "authorization_code",
+            "code": "auth-code-2",
+            "redirect_uri": "https://chatgpt.com/callback",
+            "code_verifier": "wrong-verifier",
+        },
+    )
+    assert response.status_code == 400
+    assert "PKCE" in response.json()["detail"]
+
+
+def test_pkce_accepts_valid_s256_verifier(client, human_billing_env):
+    from human_billing.router import _save_pending
+
+    verifier = "valid-verifier-xyz"
+    challenge = _pkce_challenge(verifier)
+    _save_pending("auth-code-3", {
+        "user": {"sub": "pkce-user", "email": "pkce@test.com", "name": "PKCE"},
+        "client_id": "chatgpt",
+        "redirect_uri": "https://chatgpt.com/callback",
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+    })
+
+    response = client.post(
+        "/oauth/token",
+        data={
+            "grant_type": "authorization_code",
+            "code": "auth-code-3",
+            "redirect_uri": "https://chatgpt.com/callback",
+            "code_verifier": verifier,
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["access_token"]
 
 
 def test_webhook_credits_user(client, human_billing_env):
@@ -227,6 +387,7 @@ def test_boot_without_google_stripe():
         "GOOGLE_CLIENT_ID": "",
         "GOOGLE_CLIENT_SECRET": "",
         "STRIPE_SECRET_KEY": "",
+        "REDIS_URL": "",
     }
     with patch.dict(os.environ, env, clear=False):
         from main import app
