@@ -5,11 +5,12 @@ Uses CodexSale for images, OpenRouter for TTS and multi-model routing.
 import urllib.request
 import json
 import os
-from pathlib import Path
+
+from letta_keys import load_key
 
 # Load API keys
-CODEXSALE_KEY = Path("/root/.letta/keys/codex_sale.key").read_text().strip() if Path("/root/.letta/keys/codex_sale.key").exists() else ""
-OPENROUTER_KEY = Path("/root/.letta/keys/openrouter.key").read_text().strip() if Path("/root/.letta/keys/openrouter.key").exists() else ""
+CODEXSALE_KEY = load_key("codex_sale.key", "CODEXSALE_API_KEY", "CODEX_SALE_API_KEY")
+OPENROUTER_KEY = load_key("openrouter.key", "OPENROUTER_API_KEY")
 
 CODEXSALE_BASE = "https://codex.sale/v1"
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"

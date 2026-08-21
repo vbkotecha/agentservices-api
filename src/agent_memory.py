@@ -17,14 +17,47 @@ import hashlib
 import re
 from pathlib import Path
 
-MEMORY_DIR = Path("/root/.letta/agent_memory")
-MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+_MEMORY_DIR: Path | None = None
+
+
+def _is_serverless() -> bool:
+    """Detect Vercel/Lambda-style runtimes with read-only filesystems."""
+    return any(
+        os.environ.get(name)
+        for name in ("VERCEL", "VERCEL_ENV", "AWS_LAMBDA_FUNCTION_NAME", "AWS_EXECUTION_ENV")
+    )
+
+
+def _default_memory_dir() -> Path:
+    override = os.environ.get("AGENTSERVICES_MEMORY_DIR")
+    if override:
+        return Path(override)
+    if _is_serverless():
+        return Path("/tmp/agentservices-memory")
+    return Path("/root/.letta/agent_memory")
+
+
+def _memory_dir() -> Path:
+    """Resolve a writable memory directory lazily (safe for Vercel cold starts)."""
+    global _MEMORY_DIR
+    if _MEMORY_DIR is not None:
+        return _MEMORY_DIR
+
+    for candidate in (_default_memory_dir(), Path("/tmp/agentservices-memory")):
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            _MEMORY_DIR = candidate
+            return _MEMORY_DIR
+        except OSError:
+            continue
+
+    raise OSError("No writable directory available for agent memory")
 
 
 def _wallet_dir(wallet: str) -> Path:
     """Get the memory directory for a specific wallet."""
     safe = hashlib.sha256(wallet.lower().encode()).hexdigest()[:16]
-    d = MEMORY_DIR / safe
+    d = _memory_dir() / safe
     d.mkdir(parents=True, exist_ok=True)
     return d
 

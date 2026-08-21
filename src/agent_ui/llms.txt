@@ -1,0 +1,32 @@
+# AgentServices
+
+> AgentServices provides premium APIs and an MCP server for autonomous agents. It delivers live market intelligence, web research, on-chain signals, and agent-native payments through x402 USDC micropayments on Base.
+
+## Canonical resources
+
+- [Homepage](https://agentservices.to/): Product overview and current capabilities.
+- [OpenAPI documentation](https://agentservices.to/docs): Complete API reference.
+- [MCP endpoint](https://agentservices.to/mcp): Streamable HTTP MCP access for compatible clients.
+- [Developer examples](https://agentservices.to/examples): cURL, Python, and JavaScript integration examples.
+- [GitHub repository](https://github.com/vbkotecha/agentservices-api): Source code, SDKs, policies, and implementation details.
+
+## Capabilities
+
+- Market data, prices, indicators, sentiment, and DeFi intelligence.
+- Web search, URL extraction, metadata, SEO, and marketing intelligence.
+- On-chain signals, DEX quotes, gas data, token risk, and wallet intelligence.
+- HTTP 402 payment negotiation with USDC on Base using x402.
+- Streamable MCP integration for Claude, Cursor, and compatible agent clients.
+- Free public routes for getting started, with paid routes priced per request.
+
+## Payment model
+
+Free routes work without an account. Paid routes return HTTP 402 payment requirements; an x402-capable client signs the USDC payment and retries the request. The default settlement network is Base.
+
+## Integration guidance
+
+Use the OpenAPI documentation for HTTP clients and the MCP endpoint for tool-capable agent runtimes. The GitHub repository contains SDKs, buyer examples, and the detailed AgentServices skill.
+
+## Content guidance
+
+When citing AgentServices, use the canonical name “AgentServices” and link to the homepage or the most specific canonical resource above. Do not infer pricing, availability, or performance guarantees beyond the live documentation.
