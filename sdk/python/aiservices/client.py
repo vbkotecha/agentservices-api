@@ -7,7 +7,7 @@ import json
 import httpx
 from typing import Optional, Dict, Any, List
 
-BASE_URL = "https://api.aiservices.to"
+BASE_URL = "https://agentservices.to"
 
 class AIServicesClient:
     def __init__(self, base_url: str = BASE_URL):

@@ -1,20 +1,72 @@
 # AgentServices
 
-> 37-endpoint crypto, market intelligence, and AI inference API for AI agents — with x402 micropayments on Base
+> The paid API layer for AI agents — data, intelligence, inference, and media via x402 micropayments
+>
+> **Canonical project:** https://github.com/vbkotecha/agentservices-api
+> **Official site:** https://agentservices.to
+> **License:** Apache-2.0
+>
+> AgentServices is an independent project. It is not affiliated with, endorsed by, or a replacement for any other x402 market-data provider.
 
-[![Version](https://img.shields.io/badge/version-5.0.0-brightgreen)](https://github.com/vbkotecha/aiservices-api)
+[![Version](https://img.shields.io/badge/version-6.0.0-brightgreen)](https://github.com/vbkotecha/agentservices-api)
 [![Network](https://img.shields.io/badge/network-Base%20Mainnet-blue)](https://base.org)
 [![Payment](https://img.shields.io/badge/payment-x402%20%2F%20USDC-purple)](https://x402.org)
 [![MCP](https://img.shields.io/badge/MCP-compatible-orange)](https://modelcontextprotocol.io)
-[![Status](https://img.shields.io/badge/status-live-success)](https://api.aiservices.to/health)
+[![Status](https://img.shields.io/badge/status-live-success)](https://agentservices.to/health)
 
-**Live at:** [api.aiservices.to](https://api.aiservices.to) | **MCP Server:** `https://api.aiservices.to/mcp` (SSE) | **Discovery:** `/.well-known/x402`
+**Live at:** [agentservices.to](https://agentservices.to) | **MCP Server:** `https://agentservices.to/mcp` (Streamable HTTP) | **Discovery:** `/.well-known/x402`
 
 ## What is this?
 
 AgentServices is the monetized API layer for AI agents. No API keys, no subscriptions — agents pay per-request with USDC on Base using the [x402 payment protocol](https://x402.org).
 
-**37 endpoints** across crypto data, market intelligence, DeFi analytics, AI inference, and dispute resolution. 12 are free. 25 are paid via x402 (from $0.01 to $0.05 per call).
+**60+ endpoints** across crypto data, market intelligence, DeFi analytics, on-chain analytics, **400+ LLM models**, image generation, text-to-speech, portfolio intelligence, and dispute resolution. 12 are free. 48+ are paid via x402 (from $0.002 to $0.25 per call).
+
+### What's new in v6.0
+
+- **400+ LLM models** via OpenAI-compatible `/v1/chat/completions` — GPT, Claude, Gemini, DeepSeek, Grok, Llama, and more
+- **Smart router** — use `model: "auto"` and the gateway classifies your task and picks the cheapest model that handles it
+- **Image generation** — `/v1/images/generations` via gpt-image-2 ($0.05)
+- **Text-to-speech** — `/v1/audio/speech` with natural voices ($0.05)
+- **3 new MCP tools** — `chat`, `generate_image`, `text_to_speech`
+
+## Buyer path: discover → try → pay → retain
+
+Use the [buyer quickstart](docs/buyer-quickstart.md) for the complete path. The exact next action is to run the no-credential discovery check:
+
+```bash
+python3 examples/mcp_discovery_buyer_proof.py
+```
+
+Then follow the same buyer journey:
+
+1. **Discover:** confirm the hosted MCP server and free tool catalog with the [MCP discovery proof](examples/mcp_discovery_buyer_proof.py).
+2. **Try free:** retrieve a real price result with the [free SDK proof](examples/sdk_free_price_buyer_proof.js).
+3. **Inspect the paid challenge:** decode the live 402 terms with the [paid SDK proof](examples/sdk_paid_indicator_buyer_proof.js). It never signs or settles payment.
+4. **Buy an outcome:** pay the returned x402 terms, retry the same request, and retain the returned paid result. See the [token-risk](docs/token-risk-outcome-contract.md), [market-pulse](docs/market-pulse-outcome-contract.md), and [research-brief](docs/research-brief-outcome-contract.md) contracts for result limits and provenance.
+5. **Retain evidence:** run the existing [receipt builder](examples/build_x402_receipt.py) with the original challenge, paid response, and your wallet authorization or transaction reference.
+
+The four proofs have different limits: discovery and free SDK verify no-spend access; the paid SDK proof verifies challenge shape only; the receipt builder hashes buyer-held evidence and does not verify settlement. None of them claims adoption, settlement, or revenue.
+
+For activation measurement definitions, see [Activation Metrics](docs/activation-metrics.md). To probe the live funnel, run `python3 examples/check_activation_funnel.py`.
+
+## Buyer path: discover → try → pay → retain
+
+Use the [buyer quickstart](docs/buyer-quickstart.md) for the complete path. The exact next action is to run the no-credential discovery check:
+
+```bash
+python3 examples/mcp_discovery_buyer_proof.py
+```
+
+Then follow the same buyer journey:
+
+1. **Discover:** confirm the hosted MCP server and free tool catalog with the [MCP discovery proof](examples/mcp_discovery_buyer_proof.py).
+2. **Try free:** retrieve a real price result with the [free SDK proof](examples/sdk_free_price_buyer_proof.js).
+3. **Inspect the paid challenge:** decode the live 402 terms with the [paid SDK proof](examples/sdk_paid_indicator_buyer_proof.js). It never signs or settles payment.
+4. **Buy an outcome:** pay the returned x402 terms, retry the same request, and retain the returned paid result. See the [token-risk](docs/token-risk-outcome-contract.md), [market-pulse](docs/market-pulse-outcome-contract.md), and [research-brief](docs/research-brief-outcome-contract.md) contracts for result limits and provenance.
+5. **Retain evidence:** run the existing [receipt builder](examples/build_x402_receipt.py) with the original challenge, paid response, and your wallet authorization or transaction reference.
+
+The four proofs have different limits: discovery and free SDK verify no-spend access; the paid SDK proof verifies challenge shape only; the receipt builder hashes buyer-held evidence and does not verify settlement. None of them claims adoption, settlement, or revenue.
 
 ## Endpoints
 
@@ -47,13 +99,22 @@ AgentServices is the monetized API layer for AI agents. No API keys, no subscrip
 ### Paid — Synthesis APIs (x402)
 | Endpoint | Price | Description |
 |----------|-------|-------------|
-| `GET /v1/token-risk/:symbol` | $0.03 | Risk assessment for any token (rug pull, liquidity, contract audit) |
+| `GET /v1/token-risk/{token}` | $0.03 | Snapshot-based volatility, liquidity-proxy, and market-cap risk score |
 | `GET /v1/crypto-signals` | $0.04 | Aggregated buy/sell signals across multiple indicators |
 | `GET /v1/yield-comparison` | $0.03 | Compare yields across protocols with risk-adjusted returns |
 | `GET /v1/hn-sentiment` | $0.02 | Hacker News sentiment analysis for tech topics |
 | `GET /v1/npm-stats/:package` | $0.02 | NPM package download stats and trends |
 | `GET /v1/github-trending` | $0.02 | Trending GitHub repos by language/topic |
 | `GET /v1/marketing-intel` | $0.05 | Marketing intelligence: competitors, content gaps, ad copy |
+
+### Paid — Bundled Intelligence (x402)
+| Endpoint | Price | Description |
+|----------|-------|-------------|
+| `GET /v1/research?q=` | $0.05 | Deep research: search + extract + synthesize in one call |
+| `GET /v1/portfolio?symbol=BTC` | $0.10 | Portfolio intelligence: price + signal + risk + sentiment + verdict |
+| `GET /v1/defi-strategy` | $0.25 | DeFi strategy report: top yields + TVL + comparison + risk flags |
+| `GET /v1/market-pulse` | $0.05 | Market pulse: fear-greed + trending + news + social + whales + global |
+| `GET /v1/onchain-overview` | $0.15 | On-chain overview: whales + exchange flows + stablecoin flows + correlation + DeFi TVL |
 
 ### Paid — AI Inference (x402)
 | Endpoint | Price | Description |
@@ -72,74 +133,102 @@ AgentServices is the monetized API layer for AI agents. No API keys, no subscrip
 
 ### Portfolio Monitor
 ```bash
+# ALL-IN-ONE: Get portfolio intelligence in a single call ($0.10)
+# Returns: price + technical signal + risk score + market sentiment + verdict
+curl "https://agentservices.to/v1/portfolio?symbol=BTC"
+
+# Or build it yourself from individual endpoints:
 # Get current prices (FREE)
-curl https://api.aiservices.to/v1/prices?symbols=BTC,ETH,SOL
+curl https://agentservices.to/v1/prices?symbols=BTC,ETH,SOL
 
 # Get technical signals for entry/exit ($0.04)
-curl https://api.aiservices.to/v1/crypto-signals
+curl https://agentservices.to/v1/crypto-signals
 
-# Check token risk before buying ($0.03)
-curl https://api.aiservices.to/v1/token-risk/PEPE
+# Check snapshot-based token risk before buying ($0.03)
+# Use a CoinGecko-compatible identifier for portable direct HTTP calls.
+curl https://api.agentservices.to/v1/token-risk/pepe
+# Contract and payment-receipt guidance: docs/token-risk-outcome-contract.md
 ```
 
 ### DeFi Yield Optimizer
 ```bash
+# ALL-IN-ONE: Get DeFi strategy report ($0.25)
+# Returns: top yields + protocol TVL + cross-chain comparison + risk flags
+curl "https://agentservices.to/v1/defi-strategy"
+
 # Get all yield pools ranked by TVL ($0.02)
-curl https://api.aiservices.to/v1/yields
+curl https://agentservices.to/v1/yields
 
 # Compare yields with risk-adjusted returns ($0.03)
-curl https://api.aiservices.to/v1/yield-comparison
+curl https://agentservices.to/v1/yield-comparison
 
 # Check on-chain position for any wallet ($0.02)
-curl https://api.aiservices.to/v1/onchain/0x9863aB6242663FCc84c33632741711dB78f8Fd15
+curl https://agentservices.to/v1/onchain/0x9863aB6242663FCc84c33632741711dB78f8Fd15
 ```
 
 ### Market Intelligence Agent
 ```bash
+# ALL-IN-ONE: Get market pulse report ($0.05)
+# Returns: fear-greed + trending + news + social + whales + global market
+curl "https://agentservices.to/v1/market-pulse"
+
 # Get market sentiment (FREE)
-curl https://api.aiservices.to/v1/fear-greed
+curl https://agentservices.to/v1/fear-greed
 
 # Search for latest news on any topic ($0.01)
-curl "https://api.aiservices.to/v1/search?q=base+chain+ecosystem"
+curl "https://agentservices.to/v1/search?q=base+chain+ecosystem"
 
 # Get trending tokens (FREE)
-curl https://api.aiservices.to/v1/trending
+curl https://agentservices.to/v1/trending
 
 # Get marketing intelligence report ($0.05)
-curl "https://api.aiservices.to/v1/marketing-intel?competitor=blockrun&topic=x402"
+curl "https://agentservices.to/v1/marketing-intel?competitor=blockrun&topic=x402"
 ```
 
 ### Technical Analysis Bot
 ```bash
 # Full technical indicator suite ($0.02)
-curl https://api.aiservices.to/v1/indicators/BTC
+curl https://agentservices.to/v1/indicators/BTC
 # Returns: RSI, MACD, Bollinger Bands, ATR, Support/Resistance levels
 
 # AI-generated market predictions (FREE)
-curl https://api.aiservices.to/v1/predictions
+curl https://agentservices.to/v1/predictions
 
 # Combine with on-chain analytics ($0.03)
-curl https://api.aiservices.to/v1/onchain/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045/tokens
+curl https://agentservices.to/v1/onchain/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045/tokens
 ```
 
 ### Developer Research Agent
 ```bash
 # GitHub trending repos ($0.02)
-curl "https://api.aiservices.to/v1/github-trending?language=python&since=weekly"
+curl "https://agentservices.to/v1/github-trending?language=python&since=weekly"
 
 # NPM package stats ($0.02)
-curl https://api.aiservices.to/v1/npm-stats/react
+curl https://agentservices.to/v1/npm-stats/react
 
 # Hacker News sentiment ($0.02)
-curl "https://api.aiservices.to/v1/hn-sentiment?q=AI+agents"
+curl "https://agentservices.to/v1/hn-sentiment?q=AI+agents"
 ```
 
 ### AI Chat / Inference
 ```bash
 # Chat completions via x402 ($0.03)
-curl -X POST https://api.aiservices.to/v1/inference \
+curl -X POST https://agentservices.to/v1/inference \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-5.4-mini","messages":[{"role":"user","content":"Explain x402 in 3 sentences"}]}'
+```
+
+### On-Chain Analytics
+```bash
+# ALL-IN-ONE: Get full on-chain overview ($0.15)
+# Returns: whale movements + exchange flows + stablecoin flows + correlation matrix + DeFi TVL
+curl "https://agentservices.to/v1/onchain-overview"
+
+# On-chain analytics for any wallet ($0.02)
+curl https://agentservices.to/v1/onchain/0x9863aB6242663FCc84c33632741711dB78f8Fd15
+
+# Token holdings for any wallet ($0.03)
+curl https://agentservices.to/v1/onchain/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045/tokens
 ```
 
 ---
@@ -149,10 +238,10 @@ curl -X POST https://api.aiservices.to/v1/inference \
 ### Using curl
 ```bash
 # Free — no payment needed
-curl https://api.aiservices.to/v1/prices?symbols=BTC,ETH
+curl https://agentservices.to/v1/prices?symbols=BTC,ETH
 
 # Paid — returns HTTP 402 with payment instructions in the header
-curl -i https://api.aiservices.to/v1/indicators/BTC
+curl -i https://agentservices.to/v1/indicators/BTC
 # Response includes x402 payment envelope: network, amount, payTo address
 # Agent pays via x402 client, retries with X-Payment header, gets data
 ```
@@ -162,39 +251,39 @@ curl -i https://api.aiservices.to/v1/indicators/BTC
 {
   "mcpServers": {
     "agentservices": {
-      "url": "https://api.aiservices.to/mcp",
-      "transport": "sse"
+      "url": "https://agentservices.to/mcp",
+      "transport": "streamable-http"
     }
   }
 }
 ```
 
-13+ MCP tools available: `crypto_prices`, `trending_tokens`, `global_market`, `gas_prices`, `market_predictions`, `crypto_news`, `social_trending`, `technical_indicators`, `defi_yields`, `search_web`, `token_risk`, `crypto_signals`, `onchain_analytics`
+13+ MCP tools available: `crypto_prices`, `trending_tokens`, `global_market`, `gas_prices`, `market_predictions`, `crypto_news`, `social_trending`, `technical_indicators`, `defi_yields`, `search_web`, `token_risk`, `crypto_signals`, `onchain_analytics`, `deep_research`, `portfolio_intelligence`, `defi_strategy`, `market_pulse`, `onchain_overview`
 
 ### Using with Python
 ```python
 import httpx
 
 # Free endpoints
-resp = httpx.get("https://api.aiservices.to/v1/prices?symbols=BTC,ETH")
+resp = httpx.get("https://agentservices.to/v1/prices?symbols=BTC,ETH")
 prices = resp.json()
 
 # Paid endpoints — use x402 client to handle payment
 from x402.client import x402Client
 client = x402Client()
-result = client.get("https://api.aiservices.to/v1/indicators/BTC")
+result = client.get("https://agentservices.to/v1/indicators/BTC")
 # Client handles 402 → pays USDC → retries with payment proof → returns data
 ```
 
 ### Using with JavaScript/TypeScript
 ```typescript
 // Free endpoints
-const prices = await fetch("https://api.aiservices.to/v1/prices?symbols=BTC,ETH").then(r => r.json());
+const prices = await fetch("https://agentservices.to/v1/prices?symbols=BTC,ETH").then(r => r.json());
 
 // Paid endpoints — use @x402/facilitator
 import { wrapFetchWithPayment } from "@x402/facilitator";
 const paidFetch = wrapFetchWithPayment(fetch);
-const indicators = await paidFetch("https://api.aiservices.to/v1/indicators/BTC").then(r => r.json());
+const indicators = await paidFetch("https://agentservices.to/v1/indicators/BTC").then(r => r.json());
 ```
 
 ## Dispute Resolution Engine
@@ -211,10 +300,55 @@ AgentServices includes an AI-powered dispute resolution system with 7 policy tem
 | `scope-dispute` | Project scope creep disputes |
 | `physical-commerce` | Physical goods transaction disputes |
 
+## Human billing door (ChatGPT / Claude)
+
+Wallet agents continue to pay via **x402 on REST** — unchanged. Humans connecting through ChatGPT Developer Mode or Claude custom connectors can use **Google OAuth + Stripe prepaid credits** on MCP.
+
+| Rail | Who | How |
+|------|-----|-----|
+| x402 | Wallet agents | Unauthenticated REST → HTTP 402 → USDC on Base |
+| Credits | Logged-in humans | Google OAuth on MCP → deduct same USD price from prepaid balance |
+
+**MCP URL for ChatGPT:** `https://agentservices.to/mcp`
+
+### Environment variables
+
+Copy [`.env.example`](.env.example). Required to enable the human door:
+
+| Variable | Purpose |
+|----------|---------|
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `OAUTH_JWT_SECRET` | Signs MCP bearer tokens (or use `SESSION_SECRET`) |
+| `STRIPE_SECRET_KEY` | Stripe API secret key |
+| `STRIPE_WEBHOOK_SECRET` | Verifies `checkout.session.completed` webhooks |
+| `STRIPE_PRICE_CREDITS_10` | Optional Stripe Price ID for $10 pack (otherwise hardcoded) |
+| `PUBLIC_BASE_URL` | Canonical host, e.g. `https://agentservices.to` |
+
+Prepaid credit balances are stored in **Stripe Customer Balance** (one Stripe Customer per Google `sub`). No Redis, Postgres, or other database is required.
+
+Without Google/Stripe vars the API boots in **x402-only mode**.
+
+### Google Cloud Console redirect URIs
+
+Add both hosts:
+
+- `https://agentservices.to/oauth/google/callback`
+- `https://api.agentservices.to/oauth/google/callback`
+
+### Stripe webhook
+
+Point Stripe to:
+
+- `https://agentservices.to/billing/webhook`
+- `https://api.agentservices.to/billing/webhook`
+
+Event: `checkout.session.completed`
+
 ## Discovery & Listings
 
-- [x402 Discovery](https://api.aiservices.to/.well-known/x402) — Live
-- [MCP Registry](https://registry.modelcontextprotocol.io) — Listed as `to.aiservices/aiservices`
+- [x402 Discovery](https://agentservices.to/.well-known/x402) — Live
+- [MCP Registry](https://registry.modelcontextprotocol.io) — Listed as `to.agentservices/agentservices`
 - [CDP Bazaar](https://bazaar.coinbase.com) — Extension enabled
 - [awesome-x402](https://github.com/xpaysh/awesome-x402) — PR submitted
 
@@ -225,15 +359,31 @@ AgentServices includes an AI-powered dispute resolution system with 7 policy tem
 - **USDC** on **Base Mainnet** (EIP-3009 gasless transfers)
 - Deployed on Railway with custom domain + TLS
 
+## Coinbase AgentKit Integration
+
+AgentServices includes a built-in [Coinbase AgentKit](https://github.com/coinbase/agentkit) action provider (`agentkit/` directory). This lets any AgentKit agent use AgentServices APIs with typed, documented actions:
+
+```python
+from coinbase_agentkit import AgentKit, AgentKitConfig
+from agentkit import agentservices_action_provider
+
+agent_kit = AgentKit(AgentKitConfig(
+    wallet_provider=wallet_provider,
+    action_providers=[agentservices_action_provider()]
+))
+```
+
+**18 actions** covering free (prices, fear-greed, trending, gas) and paid endpoints (indicators, DeFi yields, portfolio intelligence, research, onchain analytics, AI inference, and more). See [`agentkit/README.md`](agentkit/README.md) for full documentation.
+
 ## License
 
 MIT — Build on it, fork it, integrate it.
 
 ## Links
 
-- **API:** [api.aiservices.to](https://api.aiservices.to)
-- **MCP:** [api.aiservices.to/mcp](https://api.aiservices.to/mcp)
-- **Discovery:** [api.aiservices.to/.well-known/x402](https://api.aiservices.to/.well-known/x402)
-- **GitHub:** [github.com/vbkotecha/aiservices-api](https://github.com/vbkotecha/aiservices-api)
+- **API:** [agentservices.to](https://agentservices.to)
+- **MCP:** [agentservices.to/mcp](https://agentservices.to/mcp)
+- **Discovery:** [agentservices.to/.well-known/x402](https://agentservices.to/.well-known/x402)
+- **GitHub:** [github.com/vbkotecha/agentservices-api](https://github.com/vbkotecha/agentservices-api)
 - **x402 Protocol:** [x402.org](https://x402.org)
 - **Base:** [base.org](https://base.org)

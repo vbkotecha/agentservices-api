@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "aiservices": {
+    "agentservices": {
       "command": "python3",
       "args": ["/root/.letta/aiservices/mcp/server.py"],
       "env": {}

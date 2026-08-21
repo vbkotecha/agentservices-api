@@ -55,9 +55,9 @@ def decode_payment_header(headers):
 # ============================================================
 def test_aiservices():
     print("\n{'='*60}")
-    print("AISERVICES API — api.aiservices.to")
+    print("AISERVICES API — api.agentservices.to")
     print("{'='*60}")
-    BASE = "https://api.aiservices.to"
+    BASE = "https://api.agentservices.to"
 
     print("\n── 1. HEALTH & INFRASTRUCTURE ──")
     code, _, body = fetch(f"{BASE}/health")

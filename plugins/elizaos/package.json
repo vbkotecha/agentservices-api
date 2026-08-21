@@ -1,0 +1,35 @@
+{
+  "name": "@agentservices/plugin-elizaos",
+  "version": "1.0.0",
+  "description": "ElizaOS plugin for AgentServices — 50+ paid APIs for AI agents via x402 micropayments on Base Mainnet. Crypto data, market intelligence, on-chain analytics, DeFi strategy, portfolio intelligence, AI inference, and web search.",
+  "type": "module",
+  "main": "index.js",
+  "keywords": [
+    "elizaos",
+    "eliza",
+    "x402",
+    "crypto",
+    "market-data",
+    "ai-agent",
+    "agentservices",
+    "defi",
+    "portfolio",
+    "onchain",
+    "inference",
+    "base"
+  ],
+  "author": "AgentServices",
+  "license": "MIT",
+  "homepage": "https://agentservices.to",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vbkotecha/agentservices-api",
+    "directory": "plugins/elizaos"
+  },
+  "bugs": {
+    "url": "https://github.com/vbkotecha/agentservices-api/issues"
+  },
+  "peerDependencies": {
+    "@elizaos/core": ">=1.0.0"
+  }
+}

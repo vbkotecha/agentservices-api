@@ -8,4 +8,4 @@ startCommand:
     - mcp/server.py
 description: "Paid APIs for AI agents — crypto data, DeFi yields, indicators, dispute resolution"
 displayName: AgentServices
-icon: https://api.aiservices.to/icon.png
+icon: https://agentservices.to/.well-known/agentskills/agentservices/icon.png

@@ -23,7 +23,7 @@ Add to `claude_desktop_config.json`:
 {
   "mcpServers": {
     "aiservices": {
-      "url": "https://api.aiservices.to/mcp"
+      "url": "https://agentservices.to/mcp"
     }
   }
 }
@@ -32,12 +32,12 @@ Add to `claude_desktop_config.json`:
 ### Cursor IDE
 Settings → MCP Servers → Add:
 ```
-URL: https://api.aiservices.to/mcp
+URL: https://agentservices.to/mcp
 ```
 
 ### Any MCP Client
 ```
-MCP Server URL: https://api.aiservices.to/mcp
+MCP Server URL: https://agentservices.to/mcp
 Transport: Streamable HTTP
 ```
 
@@ -137,32 +137,32 @@ tools = [CryptoPriceTool(), FearGreedTool()]
 ### Free endpoints
 ```bash
 # Single price
-curl https://api.aiservices.to/v1/price/BTC
+curl https://api.agentservices.to/v1/price/BTC
 
 # Batch prices
-curl "https://api.aiservices.to/v1/prices?symbols=BTC,ETH,SOL"
+curl "https://api.agentservices.to/v1/prices?symbols=BTC,ETH,SOL"
 
 # Fear & Greed
-curl https://api.aiservices.to/v1/fear-greed
+curl https://api.agentservices.to/v1/fear-greed
 
 # IP Geolocation
-curl https://api.aiservices.to/v1/geo/1.2.3.4
+curl https://api.agentservices.to/v1/geo/1.2.3.4
 
 # List dispute policies
-curl https://api.aiservices.to/v1/policies
+curl https://api.agentservices.to/v1/policies
 ```
 
 ### Paid endpoints (returns 402 first)
 ```bash
 # Technical indicators
-curl https://api.aiservices.to/v1/indicators/BTC
+curl https://api.agentservices.to/v1/indicators/BTC
 # → HTTP 402 with payment-required header
 
 # DeFi yields
-curl https://api.aiservices.to/v1/yields
+curl https://api.agentservices.to/v1/yields
 
 # URL metadata
-curl "https://api.aiservices.to/v1/metadata?url=https://example.com"
+curl "https://api.agentservices.to/v1/metadata?url=https://example.com"
 ```
 
 ---
@@ -229,9 +229,9 @@ All payments in **USDC on Base Mainnet** (chain ID 8453).
 
 ## Support
 
-- **Docs:** [api.aiservices.to/docs](https://api.aiservices.to/docs)
-- **GitHub:** [github.com/vbkotecha/aiservices-api](https://github.com/vbkotecha/aiservices-api)
-- **Issues:** [GitHub Issues](https://github.com/vbkotecha/aiservices-api/issues)
+- **Docs:** [api.agentservices.to/docs](https://api.agentservices.to/docs)
+- **GitHub:** [github.com/vbkotecha/agentservices-api](https://github.com/vbkotecha/agentservices-api)
+- **Issues:** [GitHub Issues](https://github.com/vbkotecha/agentservices-api/issues)
 
 ## License
 

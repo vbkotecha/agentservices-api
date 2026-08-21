@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "to.aiservices/aiservices",
+  "name": "to.agentservices/agentservices",
   "description": "Paid APIs for AI agents with x402 crypto payments on Base",
   "repository": {
-    "url": "https://github.com/vbkotecha/aiservices-api",
+    "url": "https://github.com/vbkotecha/agentservices-api",
     "source": "github"
   },
   "version": "2.0.0",
-  "homepage": "https://api.aiservices.to",
+  "homepage": "https://agentservices.to",
   "license": "MIT",
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://api.aiservices.to/mcp"
+      "url": "https://agentservices.to/mcp"
     }
   ]
 }

@@ -1,14 +1,15 @@
 {
-  "name": "aiservices-mcp",
-  "version": "2.0.0",
-  "description": "MCP server for AgentServices — paid APIs for AI agents with crypto data, DeFi yields, indicators, and AI dispute resolution",
+  "name": "agentservices-mcp",
+  "version": "5.3.0",
+  "description": "MCP server for AgentServices — 50+ paid APIs for AI agents with crypto data, DeFi yields, on-chain analytics, portfolio intelligence, deep research, and market intelligence. x402 micropayments via USDC on Base. Pure JavaScript, zero dependencies, no Python required.",
   "main": "index.js",
   "bin": {
-    "aiservices-mcp": "./index.js"
+    "agentservices-mcp": "./index.js"
   },
   "scripts": {
     "start": "node index.js"
   },
+  "type": "commonjs",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -16,20 +17,29 @@
     "crypto",
     "defi",
     "x402",
-    "dispute-resolution",
     "base",
     "usdc",
     "claude",
-    "langchain"
+    "cursor",
+    "langchain",
+    "crewai",
+    "portfolio",
+    "market-intelligence",
+    "onchain",
+    "agentservices"
   ],
   "author": "Vivek Kotecha",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vbkotecha/aiservices-api"
+    "url": "https://github.com/vbkotecha/agentservices-api"
   },
-  "homepage": "https://api.aiservices.to",
+  "homepage": "https://agentservices.to",
   "engines": {
     "node": ">=18"
-  }
+  },
+  "files": [
+    "index.js",
+    "README.md"
+  ]
 }

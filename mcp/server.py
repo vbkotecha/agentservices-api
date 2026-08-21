@@ -8,8 +8,8 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
-SERVER = Server("aiservices")
-BASE_URL = "https://api.aiservices.to"
+SERVER = Server("agentservices")
+BASE_URL = "https://agentservices.to"
 
 ENDPOINTS = {
     "crypto_prices": {

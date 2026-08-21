@@ -1,78 +1,66 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "to.aiservices/aiservices",
-  "version": "1.0.0",
-  "description": "Paid APIs for AI agents \u2014 crypto, DeFi, marketing intelligence, dispute resolution. x402 on Base.",
+  "name": "to.agentservices/agentservices",
+  "version": "5.3.0",
+  "description": "52 paid x402 API endpoints for AI agents — crypto, data, DeFi, market intelligence.",
   "title": "AgentServices",
-  "websiteUrl": "https://aiservices.to",
+  "websiteUrl": "https://agentservices.to",
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://api.aiservices.to/mcp"
+      "url": "https://agentservices.to/mcp"
     }
   ],
   "repository": {
-    "url": "https://github.com/vbkotecha/aiservices-api",
+    "url": "https://github.com/vbkotecha/agentservices-api",
     "source": "github"
   },
   "license": "MIT",
   "categories": [
     "finance",
     "data",
-    "developer-tools"
+    "developer-tools",
+    "web-search",
+    "security"
   ],
   "tools": [
-    {
-      "name": "get_price",
-      "description": "Get current crypto price for any token (BTC, ETH, SOL, XRP...)"
-    },
-    {
-      "name": "get_batch_prices",
-      "description": "Get multiple crypto prices in one call"
-    },
-    {
-      "name": "get_indicators",
-      "description": "Technical indicators \u2014 RSI, Bollinger Bands, ATR, Support/Resistance ($0.02)"
-    },
-    {
-      "name": "get_fear_greed",
-      "description": "Crypto Fear & Greed Index (0-100)"
-    },
-    {
-      "name": "get_defi_yields",
-      "description": "Top DeFi yield pools by TVL ($0.02)"
-    },
-    {
-      "name": "get_swap_quote",
-      "description": "DEX swap quote across 6 chains via 0x API"
-    },
-    {
-      "name": "get_predictions",
-      "description": "Active Polymarket prediction markets"
-    },
-    {
-      "name": "get_crypto_news",
-      "description": "Latest crypto and blockchain news"
-    },
-    {
-      "name": "get_geolocation",
-      "description": "IP geolocation \u2014 country, city, ISP, coordinates"
-    },
-    {
-      "name": "extract_metadata",
-      "description": "URL metadata extraction and unfurling ($0.01)"
-    },
-    {
-      "name": "web_search",
-      "description": "AI-powered web search with structured results ($0.01)"
-    },
-    {
-      "name": "marketing_sentiment",
-      "description": "AI brand sentiment analysis across platforms ($0.03)"
-    },
-    {
-      "name": "marketing_ad_copy",
-      "description": "AI ad copy generator for Google/Meta/TikTok/Taboola ($0.05)"
-    }
+    {"name": "crypto_prices", "description": "Get current crypto prices (BTC, ETH, SOL, XRP) — FREE"},
+    {"name": "technical_indicators", "description": "RSI, Bollinger Bands, ATR, Support/Resistance ($0.02)"},
+    {"name": "defi_yields", "description": "Top DeFi yield pools by TVL ($0.02)"},
+    {"name": "fear_greed", "description": "Crypto Fear & Greed Index — FREE"},
+    {"name": "ip_geolocation", "description": "IP geolocation lookup — FREE"},
+    {"name": "url_metadata", "description": "URL metadata extraction ($0.01)"},
+    {"name": "web_search", "description": "AI-powered web search ($0.01)"},
+    {"name": "whale_tracking", "description": "Large whale transactions BTC/ETH ($0.02)"},
+    {"name": "exchange_flows", "description": "CEX reserve flows ($0.02)"},
+    {"name": "correlation_matrix", "description": "30-day cross-asset correlation ($0.03)"},
+    {"name": "defi_tvl", "description": "DeFi protocol TVL rankings ($0.02)"},
+    {"name": "stablecoin_flows", "description": "Stablecoin market caps ($0.02)"},
+    {"name": "github_velocity", "description": "GitHub crypto repo velocity ($0.02)"},
+    {"name": "macro_indicators", "description": "Macro economic indicators ($0.02)"},
+    {"name": "agent_context", "description": "Paste-ready market context for LLM prompts — FREE"},
+    {"name": "llm_inference", "description": "LLM inference gateway — gpt-5.4/5.4-mini/5.5 ($0.03)"},
+    {"name": "token_risk", "description": "Token risk scoring — volatility, liquidity, mcap ($0.03)"},
+    {"name": "crypto_signals", "description": "Crypto buy/sell signals from RSI+MA+BB ($0.04)"},
+    {"name": "stock_quote", "description": "Real-time stock market quote — Yahoo Finance ($0.02)"},
+    {"name": "stock_history", "description": "Historical OHLCV stock data ($0.03)"},
+    {"name": "sec_filings", "description": "SEC filings parser — 10-K/10-Q/Form 4 from EDGAR ($0.03)"},
+    {"name": "commodities", "description": "Commodity prices — oil, gold, silver, wheat ($0.03)"},
+    {"name": "fx_rates", "description": "30+ currency exchange rates ($0.003)"},
+    {"name": "web_extract", "description": "Clean text extraction from any URL ($0.002)"},
+    {"name": "package_security", "description": "Package vulnerability scan via OSV ($0.02)"},
+    {"name": "seo_keywords", "description": "SEO keyword research with volume estimates ($0.01)"},
+    {"name": "trending", "description": "Trending cryptocurrencies — FREE"},
+    {"name": "global_market", "description": "Global crypto market cap and BTC dominance — FREE"},
+    {"name": "gas_prices", "description": "Current Ethereum/Base gas prices — FREE"},
+    {"name": "swap_quote", "description": "DEX swap quote across major liquidity pools — FREE"},
+    {"name": "predictions", "description": "Crypto price predictions from on-chain models — FREE"},
+    {"name": "crypto_news", "description": "Latest crypto and blockchain news — FREE"},
+    {"name": "social_sentiment", "description": "Social media sentiment analysis for crypto — FREE"},
+    {"name": "research", "description": "Deep research: search + extract + synthesize in one call ($0.05)"},
+    {"name": "portfolio_intelligence", "description": "Portfolio analysis: price + signal + risk + sentiment + verdict ($0.10)"},
+    {"name": "defi_strategy", "description": "DeFi investment strategy: yields + TVL + comparison + risk ($0.25)"},
+    {"name": "market_pulse", "description": "Market overview: fear-greed + trending + news + whales + global ($0.05)"},
+    {"name": "onchain_overview", "description": "On-chain analytics: whales + flows + correlation + DeFi TVL ($0.15)"}
   ]
 }

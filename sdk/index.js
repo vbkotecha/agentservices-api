@@ -1,22 +1,20 @@
 /**
- * AIServices Client SDK
- * 
- * Paid data APIs for AI agents — crypto market data, DeFi yields, 
- * IP geolocation, URL metadata, and dispute resolution (AgentCourt).
- * 
- * Free endpoints: prices, fear-greed, geo
- * Paid endpoints (x402/USDC): indicators ($0.02), yields ($0.02), metadata ($0.01), disputes ($0.05)
- * 
- * @module aiservices-client
+ * AgentServices Client SDK
+ *
+ * Paid APIs for AI agents — crypto data, stocks, SEC filings, commodities,
+ * FX rates, LLM inference, token risk, crypto signals, and more.
+ * 50+ services, 34+ paid. x402 micropayments via USDC on Base.
+ *
+ * @module agentservices-client
  */
 
-const DEFAULT_BASE_URL = "https://api.aiservices.to";
+const DEFAULT_BASE_URL = "https://api.agentservices.to";
 
-class AIServicesClient {
+class AgentServicesClient {
   /**
-   * Create an AIServices client.
+   * Create an AgentServices client.
    * @param {Object} options
-   * @param {string} [options.baseUrl] - API base URL (default: https://api.aiservices.to)
+   * @param {string} [options.baseUrl] - API base URL (default: https://api.agentservices.to)
    * @param {string} [options.walletAddress] - Wallet for x402 payments (required for paid endpoints)
    * @param {string} [options.privateKey] - Private key for signing x402 payments
    */
@@ -27,35 +25,19 @@ class AIServicesClient {
     this._fetch = options.fetch || globalThis.fetch;
   }
 
-  /**
-   * Make an HTTP request to the API.
-   * @private
-   */
   async _request(method, path, body = null) {
     const url = `${this.baseUrl}${path}`;
-    const opts = {
-      method,
-      headers: { "Content-Type": "application/json" },
-    };
+    const opts = { method, headers: { "Content-Type": "application/json" } };
     if (body) opts.body = JSON.stringify(body);
 
     const response = await this._fetch(url, opts);
-    
-    // Handle x402 payment required
+
     if (response.status === 402) {
       const error = new Error("Payment required. This endpoint requires x402 payment (USDC on Base).");
       error.status = 402;
       error.needsPayment = true;
-      
-      // If x402 header present, try to extract payment requirements
-      const wwwAuth = response.headers.get("www-authenticate") || response.headers.get("WWW-Authenticate");
-      if (wwwAuth) {
-        try {
-          error.paymentRequirements = JSON.parse(wwwAuth.startsWith("x402 ") ? wwwAuth.slice(5) : wwwAuth);
-        } catch {
-          error.paymentRequirements = wwwAuth;
-        }
-      }
+      const paymentHeader = response.headers.get("payment-required");
+      if (paymentHeader) { error.paymentRequirements = paymentHeader; }
       throw error;
     }
 
@@ -67,122 +49,157 @@ class AIServicesClient {
     return response.json();
   }
 
-  // ─── FREE ENDPOINTS ──────────────────────────────────────────────
+  // ─── FREE ENDPOINTS ──────────────────────────────────────────
 
-  /**
-   * Get current crypto price (FREE).
-   * @param {string} symbol - Crypto symbol (e.g., "BTC", "ETH")
-   * @returns {Promise<Object>} Price data
-   */
   async getPrice(symbol) {
     return this._request("GET", `/v1/price/${encodeURIComponent(symbol)}`);
   }
 
-  /**
-   * Get batch crypto prices (FREE).
-   * @param {string[]} symbols - Array of symbols (e.g., ["BTC", "ETH"])
-   * @returns {Promise<Object>} Batch price data
-   */
   async getPrices(symbols = ["BTC", "ETH", "SOL", "XRP"]) {
     return this._request("GET", `/v1/prices?symbols=${symbols.join(",")}`);
   }
 
-  /**
-   * Get Crypto Fear & Greed Index (FREE).
-   * @returns {Promise<Object>} Fear & Greed data
-   */
   async getFearGreed() {
     return this._request("GET", `/v1/fear-greed`);
   }
 
-  /**
-   * Get IP geolocation (FREE).
-   * @param {string} ip - IP address
-   * @returns {Promise<Object>} Geolocation data
-   */
   async getGeo(ip) {
     return this._request("GET", `/v1/geo/${encodeURIComponent(ip)}`);
   }
 
-  /**
-   * List dispute policy templates (FREE).
-   * @returns {Promise<Array>} Available policies
-   */
-  async listPolicies() {
-    return this._request("GET", `/v1/policies`);
+  async getGlobal() {
+    return this._request("GET", `/v1/global`);
   }
 
-  // ─── PAID ENDPOINTS (x402 / USDC on Base) ────────────────────────
+  async getTrending() {
+    return this._request("GET", `/v1/trending`);
+  }
 
-  /**
-   * Get technical indicators: RSI, Bollinger Bands, ATR, Support/Resistance ($0.02).
-   * @param {string} symbol - Crypto symbol
-   * @returns {Promise<Object>} Technical indicators
-   */
+  async getGas() {
+    return this._request("GET", `/v1/gas`);
+  }
+
+  async getNews() {
+    return this._request("GET", `/v1/news`);
+  }
+
+  // ─── PAID: CRYPTO DATA ──────────────────────────────────────
+
   async getIndicators(symbol) {
     return this._request("GET", `/v1/indicators/${encodeURIComponent(symbol)}`);
   }
 
-  /**
-   * Get top DeFi yield pools by TVL ($0.02).
-   * @param {Object} [opts]
-   * @param {number} [opts.limit=20] - Max results
-   * @param {string} [opts.chain="all"] - Filter by chain
-   * @returns {Promise<Object>} Yield pool data
-   */
   async getYields({ limit = 20, chain = "all" } = {}) {
     return this._request("GET", `/v1/yields?limit=${limit}&chain=${encodeURIComponent(chain)}`);
   }
 
-  /**
-   * Get URL metadata / unfurling ($0.01).
-   * @param {string} url - URL to extract metadata from
-   * @returns {Promise<Object>} Metadata (title, description, image, etc.)
-   */
   async getMetadata(url) {
     return this._request("GET", `/v1/metadata?url=${encodeURIComponent(url)}`);
   }
 
-  /**
-   * Submit a dispute for policy-driven ruling ($0.05).
-   * Uses the AgentCourt engine for deterministic, policy-first dispute resolution.
-   * 
-   * @param {Object} dispute
-   * @param {string} dispute.policy - Policy template name (e.g., "freelance-delivery", "bug-bounty")
-   * @param {string} dispute.claimant - Plaintiff address or agent ID
-   * @param {string} dispute.respondent - Respondent address or agent ID
-   * @param {string} [dispute.claim] - What happened
-   * @param {string} [dispute.desiredRemedy] - What the claimant wants
-   * @param {Array} [dispute.evidence] - Evidence items
-   * @returns {Promise<Object>} Ruling with confidence, facts, and remedy
-   */
-  async fileDispute({ policy, claimant, respondent, claim = "", desiredRemedy = "", evidence = [] }) {
-    return this._request("POST", `/v1/disputes`, {
-      policy,
-      claimant,
-      respondent,
-      claim,
-      desired_remedy: desiredRemedy,
-      evidence,
-    });
+  async search(query) {
+    return this._request("GET", `/v1/search?q=${encodeURIComponent(query)}`);
   }
 
-  // ─── HEALTH ──────────────────────────────────────────────────────
+  async getWhales() {
+    return this._request("GET", `/v1/whales`);
+  }
 
-  /**
-   * Check API health and x402 status.
-   * @returns {Promise<Object>} Health status
-   */
+  async getExchangeFlows() {
+    return this._request("GET", `/v1/exchange-flows`);
+  }
+
+  async getCorrelation() {
+    return this._request("GET", `/v1/correlation`);
+  }
+
+  async getDefiTvl() {
+    return this._request("GET", `/v1/defi-tvl`);
+  }
+
+  // ─── PAID: INFERENCE GATEWAY ────────────────────────────────
+
+  async inference({ model = "gpt-5.4-mini", messages, temperature = 0.7, max_tokens = 1000 }) {
+    return this._request("POST", `/v1/inference`, { model, messages, temperature, max_tokens });
+  }
+
+  async complete(prompt, { model = "gpt-5.4-mini", max_tokens = 500 } = {}) {
+    return this._request("POST", `/v1/complete?prompt=${encodeURIComponent(prompt)}&model=${model}&max_tokens=${max_tokens}`);
+  }
+
+  // ─── PAID: SYNTHESIS ────────────────────────────────────────
+
+  async getTokenRisk(token) {
+    return this._request("GET", `/v1/token-risk/${encodeURIComponent(token)}`);
+  }
+
+  async getSignals(symbol) {
+    return this._request("GET", `/v1/signals/${encodeURIComponent(symbol)}`);
+  }
+
+  async getYieldComparison(chain = "") {
+    return this._request("GET", `/v1/yield-comparison?chain=${encodeURIComponent(chain)}`);
+  }
+
+  async getHnSentiment(query = "") {
+    return this._request("GET", `/v1/hn-sentiment?query=${encodeURIComponent(query)}`);
+  }
+
+  async getNpmStats(package_name) {
+    return this._request("GET", `/v1/npm-stats/${encodeURIComponent(package_name)}`);
+  }
+
+  async getGithubTrending(language = "") {
+    return this._request("GET", `/v1/github-trending?language=${encodeURIComponent(language)}`);
+  }
+
+  // ─── PAID: TRADITIONAL FINANCE ──────────────────────────────
+
+  async getStockQuote(ticker) {
+    return this._request("GET", `/v1/stocks/${encodeURIComponent(ticker)}`);
+  }
+
+  async getStockHistory(ticker, range = "3mo") {
+    return this._request("GET", `/v1/stocks/${encodeURIComponent(ticker)}/history?range=${range}`);
+  }
+
+  async getSecFilings(ticker, filingType = "10-K") {
+    return this._request("GET", `/v1/sec/${encodeURIComponent(ticker)}?filing_type=${filingType}`);
+  }
+
+  async getCommodities() {
+    return this._request("GET", `/v1/commodities`);
+  }
+
+  async getEconomicIndicators() {
+    return this._request("GET", `/v1/economic`);
+  }
+
+  async getFxRates(base = "USD") {
+    return this._request("GET", `/v1/fx?base=${base}`);
+  }
+
+  // ─── PAID: UTILITY ──────────────────────────────────────────
+
+  async extractContent(url) {
+    return this._request("GET", `/v1/extract?url=${encodeURIComponent(url)}`);
+  }
+
+  async scanPackageSecurity(package_name, ecosystem = "PyPI") {
+    return this._request("GET", `/v1/security/${encodeURIComponent(package_name)}?ecosystem=${ecosystem}`);
+  }
+
+  async getSeoKeywords(keyword) {
+    return this._request("GET", `/v1/seo/keywords?keyword=${encodeURIComponent(keyword)}`);
+  }
+
+  // ─── HEALTH ──────────────────────────────────────────────────
+
   async health() {
     return this._request("GET", `/health`);
   }
 }
 
-// CommonJS export
-module.exports = { AIServicesClient };
-
-// Also export as default for require
-module.exports.default = AIServicesClient;
-
-// Named export for the client class
-module.exports.AIServicesClient = AIServicesClient;
+module.exports = { AgentServicesClient };
+module.exports.default = AgentServicesClient;
+module.exports.AgentServicesClient = AgentServicesClient;

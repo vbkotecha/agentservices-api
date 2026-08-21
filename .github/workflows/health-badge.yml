@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Check API Health
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://api.aiservices.to/health)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://api.agentservices.to/health)
           echo "Health status: $RESPONSE"
           if [ "$RESPONSE" != "200" ]; then
             echo "::error::API health check failed with status $RESPONSE"
@@ -23,7 +23,7 @@ jobs:
       - name: Verify Paid Endpoints Return 402
         run: |
           # Test that paid endpoints properly return 402 Payment Required
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.aiservices.to/v1/indicators/BTC)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.agentservices.to/v1/indicators/BTC)
           echo "Indicators endpoint status: $STATUS (expected 402)"
           if [ "$STATUS" != "402" ]; then
             echo "::warning::Expected 402 but got $STATUS"
@@ -32,7 +32,7 @@ jobs:
       - name: Verify Free Endpoints Return 200
         run: |
           # Test that free endpoints return 200
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.aiservices.to/v1/prices?symbols=BTC)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.agentservices.to/v1/prices?symbols=BTC)
           echo "Prices endpoint status: $STATUS (expected 200)"
           if [ "$STATUS" != "200" ]; then
             echo "::error::Free endpoint returned $STATUS instead of 200"
@@ -41,7 +41,7 @@ jobs:
 
       - name: Verify x402 Discovery
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.aiservices.to/.well-known/x402)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.agentservices.to/.well-known/x402)
           echo "x402 discovery status: $STATUS (expected 200)"
           if [ "$STATUS" != "200" ]; then
             echo "::warning::x402 discovery returned $STATUS"
@@ -49,7 +49,7 @@ jobs:
 
       - name: Verify MCP Endpoint
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST https://api.aiservices.to/mcp)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST https://api.agentservices.to/mcp)
           echo "MCP endpoint status: $STATUS"
           # MCP may return 400 or 406 without proper headers, which is fine
           if [ "$STATUS" = "000" ] || [ "$STATUS" = "502" ] || [ "$STATUS" = "503" ]; then
