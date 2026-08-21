@@ -1,3 +1,9 @@
 .letta/
 src/.env
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials*
 __pycache__/

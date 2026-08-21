@@ -4,6 +4,7 @@ Crypto market data, IP geolocation, URL metadata, marketing intelligence
 """
 import os
 import html
+import json
 from pathlib import Path
 
 # Load .env file
@@ -14,10 +15,12 @@ if env_file.exists():
             key, val = line.split("=", 1)
             os.environ.setdefault(key.strip(), val.strip())
 
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, HTTPException
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from typing import List
 import sys
 
@@ -32,6 +35,7 @@ from prediction_data import get_polymarket_markets, get_polymarket_market, get_p
 from news_data import get_crypto_news, get_social_trending, get_global_market
 from engine.policy_engine import evaluate_dispute, list_policies
 from mcp_endpoint import router as mcp_router
+from human_billing.router import router as human_billing_router
 from marketing_data import (
     SentimentRequest, TrendRequest, CompetitorRequest, ContentGapRequest, AdCopyRequest,
     analyze_sentiment, detect_trends, analyze_competitors, find_content_gaps, generate_ad_copy,
@@ -45,16 +49,23 @@ from synthesis_data import (
     get_github_trending, get_yield_comparison, deep_research, portfolio_intelligence,
     defi_strategy_report, market_pulse, onchain_overview, arbitrage_scanner, liquidation_map,
 )
-from inference_gateway import list_models as list_inference_models, inference, quick_complete
+from inference_gateway import list_models as list_inference_models, inference, quick_complete, chat_completions, list_all_openrouter_models
+from pricing_cache import calculate_price as calc_dynamic_price, fetch_pricing, pricing_summary
 from tradfi_data import get_stock_quote, get_stock_history, get_sec_filings, get_commodities, get_economic_indicators, get_fx_rates
-from utility_data import extract_web_content, scan_package_security, seo_keywords
+from gov_data import get_ca_entity_status
+from utility_data import extract_web_content, scan_package_security, seo_keywords, backlink_intelligence
 from agent_memory import store as mem_store, retrieve as mem_retrieve, list_keys as mem_list, delete as mem_delete, search as mem_search
 from skill_packs import crypto_dossier, stock_dossier, market_overview, available_skills
 from media_gateway import generate_image, text_to_speech, multi_model_inference, list_all_models
 from voice_gateway import get_phone_number, make_call, lookup_number
+from agent_catalog import search_catalog, get_tool
+from agent_identity import (register_agent, get_agent, add_feedback, reputation,
+                            verify_agent, snapshot, verify_evidence, check_claims)
+import erc8004_provider
 
 AISERVICES_PAY_TO = "0x9863aB6242663FCc84c33632741711dB78f8Fd15"
 WALLET = os.environ.get("WALLET_ADDRESS", AISERVICES_PAY_TO)
+INDEXNOW_KEY = "42b652cb-203a-42db-8a86-4e94fbfcbeae"
 
 app = FastAPI(
     title="AgentServices",
@@ -78,6 +89,20 @@ LLM inference gateway, marketing intelligence, and more.
 All paid endpoints use x402 protocol with USDC on Base.
 """,
 )
+
+app.mount("/_agent-ui", StaticFiles(directory=Path(__file__).parent / "agent_ui"), name="agent_ui")
+
+class DynamicBodyMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.method == "POST" and request.url.path in ("/v1/chat/completions", "/v1/inference", "/v1/complete"):
+            try:
+                body = json.loads(await request.body())
+                request.scope.setdefault("state", {})["dynamic_body"] = body
+            except Exception:
+                request.scope.setdefault("state", {})["dynamic_body"] = {}
+        return await call_next(request)
+
+app.add_middleware(DynamicBodyMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -178,6 +203,8 @@ _BAZAAR_ENDPOINT_INFO = {
         "output_example": {"USD/EUR": 0.92, "USD/GBP": 0.79, "USD/JPY": 149.50, "EUR/GBP": 0.86}},
     "/v1/fx-rates": {"method": "GET", "route": "/v1/fx-rates", "path_params": {}, "query": {"base": "USD"}, "body": None,
         "output_example": {"base": "USD", "rates": {"EUR": 0.92, "GBP": 0.79, "JPY": 149.50, "CAD": 1.36}}},
+    "/v1/gov/us/ca/entity": {"method": "GET", "route": "/v1/gov/us/ca/entity", "path_params": {}, "query": {"q": "202150010654"}, "body": None,
+        "output_example": {"sku": "ca.entity.status", "name": "Pure Moon LLC", "entity_number": "202150010654", "type": "Limited Liability Company - CA", "status": "Active", "jurisdiction": "CALIFORNIA", "registered_agent": {"name": "Sierra Pearson", "city": "SACRAMENTO", "state": "CA"}, "initial_filing_date": "2021-12-06", "source": "California Secretary of State Business Entity Public Search API", "retrieved_at": "2026-08-16T00:00:00Z", "disclaimer": "This information is sourced from public records and is not legal or tax advice."}},
     "/v1/stocks": {"method": "GET", "route": "/v1/stocks/:ticker", "path_params": {"ticker": "AAPL"}, "query": {}, "body": None,
         "output_example": {"ticker": "AAPL", "price": 227.50, "change": 1.23, "volume": 52000000, "market_cap": 3450000000000}},
     "/v1/sec": {"method": "GET", "route": "/v1/sec/:ticker", "path_params": {"ticker": "AAPL"}, "query": {}, "body": None,
@@ -236,6 +263,8 @@ _BAZAAR_ENDPOINT_INFO = {
         "output_example": [{"repo": "langchain-ai/langchain", "stars": 95000, "language": "Python", "description": "Building applications with LLMs"}]},
     "/v1/seo/keywords": {"method": "GET", "route": "/v1/seo/keywords", "path_params": {}, "query": {"domain": "example.com", "topic": "AI"}, "body": None,
         "output_example": [{"keyword": "AI API", "volume": 12000, "difficulty": 45}]},
+    "/v1/backlinks": {"method": "GET", "route": "/v1/backlinks", "path_params": {}, "query": {"domain": "example.com", "site_url": "https://example.com/"}, "body": None,
+        "output_example": {"domain": "example.com", "status": "ok", "count": 2, "referring_domains": ["example.org", "github.com"], "backlinks": [{"url": "https://example.org/docs", "referring_domain": "example.org", "evidence": "target domain link found in page"}, {"url": "https://github.com/example/list/blob/main/README.md", "referring_domain": "github.com", "evidence": "target domain link found in file"}]}},
     "/v1/models/all": {"method": "GET", "route": "/v1/models/all", "path_params": {}, "query": {}, "body": None,
         "output_example": {"providers": ["openai", "anthropic", "google", "deepseek"], "models": [{"id": "gpt-5.4-mini", "context": 128000}]}},
     "/v1/skills/market-overview": {"method": "GET", "route": "/v1/skills/market-overview", "path_params": {}, "query": {}, "body": None,
@@ -253,6 +282,84 @@ def _match_bazaar_info(route_path):
         if path.startswith(prefix):
             return info
     return None
+
+def _json_schema_from_example(value):
+    """Best-effort JSON Schema fragment from an example value."""
+    if isinstance(value, bool):
+        return {"type": "boolean"}
+    if isinstance(value, int):
+        return {"type": "integer"}
+    if isinstance(value, float):
+        return {"type": "number"}
+    if isinstance(value, str):
+        return {"type": "string"}
+    if isinstance(value, list):
+        item_schema = _json_schema_from_example(value[0]) if value else {}
+        return {"type": "array", "items": item_schema or {"type": "object"}}
+    if isinstance(value, dict):
+        properties = {k: _json_schema_from_example(v) for k, v in value.items()}
+        return {"type": "object", "properties": properties}
+    return {}
+
+def _build_bazaar_schema(info_data):
+    """Build OneSource-shaped JSON Schema (Draft 2020-12) for bazaar.info."""
+    method = info_data.get("method", "GET").upper()
+    query_methods = {"GET", "HEAD", "DELETE"}
+    body_methods = {"POST", "PUT", "PATCH"}
+    method_enum = sorted(query_methods if method in query_methods else body_methods)
+
+    input_props = {
+        "type": {"type": "string", "const": "http"},
+        "method": {"type": "string", "enum": method_enum},
+    }
+    input_required = ["type", "method"]
+
+    if info_data.get("path_params"):
+        path_props = {k: {"type": "string"} for k in info_data["path_params"]}
+        input_props["pathParams"] = {
+            "type": "object",
+            "properties": path_props,
+            "required": list(path_props),
+        }
+
+    if method in query_methods and info_data.get("query"):
+        query_props = {k: {"type": "string"} for k in info_data["query"]}
+        input_props["query"] = {"type": "object", "properties": query_props}
+
+    if method in body_methods and info_data.get("body") is not None:
+        input_props["bodyType"] = {"type": "string", "enum": ["json", "form-data", "text"]}
+        input_props["body"] = _json_schema_from_example(info_data["body"])
+        input_required.extend(["bodyType", "body"])
+
+    info_props = {
+        "input": {
+            "type": "object",
+            "properties": input_props,
+            "required": input_required,
+            "additionalProperties": False,
+        }
+    }
+    info_required = ["input"]
+
+    if info_data.get("output_example") is not None:
+        info_props["output"] = {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string"},
+                "example": {"type": "object"},
+            },
+            "required": ["type"],
+        }
+
+    if info_data.get("route"):
+        info_props["routeTemplate"] = {"type": "string"}
+
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": info_props,
+        "required": info_required,
+    }
 
 def _build_bazaar_extension(route_path, route_desc):
     """Build the full bazaar extension with discovery info for CDP Bazaar indexing."""
@@ -282,7 +389,106 @@ def _build_bazaar_extension(route_path, route_desc):
             },
             "routeTemplate": info_data["route"],
         }
+        base["schema"] = _build_bazaar_schema(info_data)
     return base
+
+# CDP Bazaar indexes from paymentPayload.resource on /settle (x402-foundation/x402#2156).
+# Buyer clients (e.g. awal / x402_requests) often omit resource on the payment proof.
+_CDP_RESOURCE_DESCRIPTION_MAX_LEN = 500  # x402-foundation/x402#2832
+
+
+def _normalize_public_resource_url(url: str) -> str:
+    if url.startswith("http://"):
+        return url.replace("http://", "https://", 1)
+    return url
+
+
+def _route_path_from_resource_url(url: str) -> str:
+    for host in ("api.agentservices.to", "agentservices.to", "aiservices.to"):
+        if host in url:
+            return url.split(host, 1)[-1].split("?", 1)[0]
+    from urllib.parse import urlparse
+
+    return urlparse(url).path or url
+
+
+def _backfill_settle_payment_payload(
+    payload_dict: dict,
+    resource_url: str,
+    route_desc: str = "AgentServices API",
+) -> dict:
+    """Ensure paymentPayload.resource and extensions.bazaar for CDP /settle indexing."""
+    resource_url = _normalize_public_resource_url(resource_url)
+    route_path = _route_path_from_resource_url(resource_url)
+
+    resource = payload_dict.get("resource")
+    if resource is None:
+        resource = {}
+    elif not isinstance(resource, dict):
+        resource = (
+            resource.model_dump(by_alias=True, exclude_none=True)
+            if hasattr(resource, "model_dump")
+            else dict(resource)
+        )
+
+    if not resource.get("url"):
+        resource["url"] = resource_url
+    else:
+        resource["url"] = _normalize_public_resource_url(resource["url"])
+
+    resource["serviceName"] = "AgentServices"
+    resource["tags"] = _BAZAAR_TAGS
+    desc = resource.get("description") or route_desc
+    resource["description"] = desc[:_CDP_RESOURCE_DESCRIPTION_MAX_LEN]
+    payload_dict["resource"] = resource
+
+    bazaar_ext = _build_bazaar_extension(route_path, route_desc)
+    extensions = payload_dict.get("extensions")
+    if extensions is None:
+        extensions = {}
+    elif not isinstance(extensions, dict):
+        extensions = (
+            extensions.model_dump(by_alias=True, exclude_none=True)
+            if hasattr(extensions, "model_dump")
+            else dict(extensions)
+        )
+    extensions.setdefault("bazaar", bazaar_ext)
+    payload_dict["extensions"] = extensions
+
+    return payload_dict
+
+
+def _apply_settle_resource_backfill(context) -> None:
+    """Mutate SettleContext.payment_payload before CDP /settle for Bazaar indexing."""
+    transport = context.transport_context
+    if transport is None or not hasattr(transport, "request"):
+        return
+
+    adapter = getattr(transport.request, "adapter", None)
+    if adapter is None or not hasattr(adapter, "get_url"):
+        return
+
+    resource_url = adapter.get_url()
+    if not resource_url:
+        return
+
+    payload = context.payment_payload
+    payload_dict = (
+        payload.model_dump(by_alias=True, exclude_none=True)
+        if hasattr(payload, "model_dump")
+        else dict(payload)
+    )
+    route_desc = "AgentServices API"
+    existing_resource = payload_dict.get("resource") or {}
+    if isinstance(existing_resource, dict) and existing_resource.get("description"):
+        route_desc = existing_resource["description"]
+
+    backfilled = _backfill_settle_payment_payload(payload_dict, resource_url, route_desc)
+
+    from x402.schemas import ResourceInfo
+
+    payload.resource = ResourceInfo.model_validate(backfilled["resource"])
+    payload.extensions = backfilled.get("extensions")
 
 @app.middleware("http")
 async def enrich_402_bazaar(request, call_next):
@@ -330,6 +536,8 @@ async def enrich_402_bazaar(request, call_next):
                     route_path = route_path.split("aiservices.to", 1)[-1]
                 route_desc = resource.get("description", "AgentServices API")
 
+                bazaar_ext = _build_bazaar_extension(route_path, route_desc)
+
                 for accept in payload.get("accepts", []):
                     # Fix payTo: ensure 0x prefix
                     pay_to = accept.get("payTo", "")
@@ -339,7 +547,9 @@ async def enrich_402_bazaar(request, call_next):
                     # Add bazaar extension with full discovery info
                     if "extensions" not in accept:
                         accept["extensions"] = {}
-                    accept["extensions"]["bazaar"] = _build_bazaar_extension(route_path, route_desc)
+                    accept["extensions"]["bazaar"] = bazaar_ext
+
+                payload.setdefault("extensions", {})["bazaar"] = bazaar_ext
 
                 # Re-encode and update header
                 updated_json = _json.dumps(payload, separators=(',', ':'))
@@ -373,8 +583,12 @@ X402_ENABLED = False
 X402_ERROR = "Not initialized"
 try:
     from x402.http import FacilitatorConfig, HTTPFacilitatorClient, PaymentOption, CreateHeadersAuthProvider
-    from x402.http.middleware.fastapi import PaymentMiddlewareASGI
+    from x402.http.middleware.fastapi import PaymentMiddlewareASGI, FastAPIAdapter
     from x402.http.types import RouteConfig
+
+    # The upstream FastAPI adapter defaults get_body() to None. Expose the
+    # body captured by DynamicBodyMiddleware to DynamicPrice callbacks.
+    FastAPIAdapter.get_body = lambda self: self._request.scope.get("state", {}).get("dynamic_body")
     from x402.mechanisms.evm.exact import ExactEvmServerScheme
     from x402.server import x402ResourceServer
     from x402.extensions.bazaar import bazaar_resource_server_extension
@@ -382,19 +596,25 @@ try:
     # Build facilitator — CDP needs JWT auth headers, others (Dexter) are open
     facilitator_config_kwargs = {"url": X402_FACILITATOR_URL}
     if not X402_IS_MULTICHAIN:
-        from x402_payment import create_cdp_auth_headers, CDP_FACILITATOR_URL
+        from x402_payment import base_supported_response, cdp_auth_available, create_cdp_auth_headers, CDP_FACILITATOR_URL
         facilitator_config_kwargs["url"] = CDP_FACILITATOR_URL
         facilitator_config_kwargs["auth_provider"] = CreateHeadersAuthProvider(create_cdp_auth_headers)
 
-    # CDP Bazaar indexing fix (x402-foundation/x402#2832):
-    # CDP facilitator /verify rejects payloads with resource/extensions.
-    # Subclass HTTPFacilitatorClient to strip those fields before POST.
-    # This restores CDP Bazaar indexing and x402scan marketplace visibility.
+    # CDP facilitator /verify rejects some v2 payloads carrying resource/extensions
+    # (x402-foundation/x402#2832) — strip on verify only. Bazaar indexes from
+    # paymentPayload.resource on /settle (x402-foundation/x402#2156), so backfill
+    # there via on_before_settle and forward resource + bazaar extensions.
     import httpx
 
     class CDPFixedFacilitatorClient(HTTPFacilitatorClient):
-        """HTTPFacilitatorClient that strips resource/extensions from paymentPayload
-        before sending to CDP /verify — fixes x402-foundation/x402#2832."""
+        """HTTPFacilitatorClient tuned for CDP verify/settle + Bazaar indexing."""
+
+        def get_supported(self):
+            # Unpaid 402 challenges only need supported kinds during initialize().
+            # On Vercel, CDP keys are often unset; verify/settle still require them.
+            if not X402_IS_MULTICHAIN and not cdp_auth_available():
+                return base_supported_response()
+            return super().get_supported()
 
         async def verify(self, payment_payload, payment_requirements):
             payload_dict = payment_payload.model_dump(by_alias=True, exclude_none=True) if hasattr(payment_payload, 'model_dump') else dict(payment_payload)
@@ -408,8 +628,11 @@ try:
 
         async def settle(self, payment_payload, payment_requirements):
             payload_dict = payment_payload.model_dump(by_alias=True, exclude_none=True) if hasattr(payment_payload, 'model_dump') else dict(payment_payload)
-            payload_dict.pop("resource", None)
-            payload_dict.pop("extensions", None)
+            # on_before_settle should have backfilled resource/extensions; keep them
+            # for CDP Bazaar indexing. Trim description defensively (#2832).
+            resource = payload_dict.get("resource")
+            if isinstance(resource, dict) and resource.get("description"):
+                resource["description"] = resource["description"][:_CDP_RESOURCE_DESCRIPTION_MAX_LEN]
             if hasattr(payment_payload, 'model_validate'):
                 cleaned = type(payment_payload).model_validate(payload_dict)
             else:
@@ -418,6 +641,11 @@ try:
 
     facilitator = CDPFixedFacilitatorClient(FacilitatorConfig(**facilitator_config_kwargs))
     payment_server = x402ResourceServer(facilitator)
+
+    async def _ensure_settle_resource_for_bazaar(context):
+        _apply_settle_resource_backfill(context)
+
+    payment_server.on_before_settle(_ensure_settle_resource_for_bazaar)
     # Register EVM networks (Base, BSC)
     payment_server.register(X402_BASE_NETWORK, ExactEvmServerScheme())
     if X402_IS_MULTICHAIN:
@@ -532,16 +760,16 @@ try:
             mime_type="application/json",
             description="Macro economic and crypto indicators",
         ),
-        # --- NEW: Inference Gateway (BlockRun competitor) ---
+        # --- Inference Gateway (dynamic pricing: provider cost + 5%) ---
         "POST /v1/inference": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.03"),
             mime_type="application/json",
-            description="LLM inference gateway — chat completions via gpt-5.4/5.4-mini/5.5",
+            description="LLM inference — dynamic pricing (provider cost + 5%, floor $0.003)",
         ),
         "POST /v1/complete": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.03"),
             mime_type="application/json",
-            description="Quick text completion — send a prompt, get a response",
+            description="Quick text completion — dynamic pricing",
         ),
         # --- NEW: Synthesis Endpoints ---
         "GET /v1/token-risk/*": RouteConfig(
@@ -610,6 +838,11 @@ try:
             mime_type="application/json",
             description="Real-time FX/forex rates for 30+ currencies (alias for /v1/fx)",
         ),
+        "GET /v1/gov/us/ca/entity": RouteConfig(
+            accepts=_payment_options(X402_WALLET, "$0.03"),
+            mime_type="application/json",
+            description="California business entity status lookup by name or entity number",
+        ),
         # --- NEW: Utility (gap fillers) ---
         "GET /v1/extract": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.002"),
@@ -625,6 +858,11 @@ try:
             accepts=_payment_options(X402_WALLET, "$0.01"),
             mime_type="application/json",
             description="SEO keyword research — volume estimates and competition",
+        ),
+        "GET /v1/backlinks": RouteConfig(
+            accepts=_payment_options(X402_WALLET, "$0.02"),
+            mime_type="application/json",
+            description="Backlink list — discovered external pages linking to the target domain",
         ),
         # --- NEW: Deep Research (flagship bundled endpoint) ---
         "GET /v1/research": RouteConfig(
@@ -711,7 +949,7 @@ try:
         "POST /v1/chat/completions": RouteConfig(
             accepts=_payment_options(X402_WALLET, "$0.03"),
             mime_type="application/json",
-            description="Multi-model LLM routing — 344+ models via OpenRouter",
+            description="Chat completions — dynamic pricing (provider cost + 5%, floor $0.003). 400+ models. Use model=auto for smart routing.",
         ),
         # --- Voice Gateway (phone, calls) ---
         "POST /v1/calls": RouteConfig(
@@ -726,11 +964,34 @@ try:
         ),
     }
 
-    app.add_middleware(
-        PaymentMiddlewareASGI,
-        routes=payment_routes,
-        server=payment_server,
-    )
+    # DynamicPrice is evaluated by x402 with the request context before 402.
+    from x402.http.types import HTTPRequestContext
+    def _dynamic_chat_price(context):
+        # Never undercharge if a framework adapter cannot expose the body.
+        # The conservative fallback is an authorization ceiling, not a margin
+        # claim; the normal path computes provider cost + 5% from live rates.
+        body = context.adapter.get_body()
+        if not isinstance(body, dict) or not body:
+            return "$0.25"
+        model = body.get("model") or "auto"
+        messages = body.get("messages", [])
+        max_tokens = min(int(body.get("max_tokens", 1000) or 1000), 4096)
+        if model == "auto":
+            from inference_gateway import _route_model
+            model = _route_model("auto", messages, body.get("profile", "auto"))
+        return calc_dynamic_price(model, messages, max_tokens)
+    for route_key in ("POST /v1/chat/completions", "POST /v1/inference", "POST /v1/complete"):
+        route = payment_routes.get(route_key)
+        if route:
+            for option in route.accepts:
+                option.price = _dynamic_chat_price
+
+    # Use function middleware so request body can be parsed by the dynamic price hook.
+    from x402.http.middleware.fastapi import payment_middleware
+    app.middleware("http")(payment_middleware(payment_routes, payment_server))
+    # Register after x402 so Starlette executes it before x402 on the request path.
+    app.add_middleware(DynamicBodyMiddleware)
+    # Must wrap x402 so the request body is priced before the payment challenge.
     print(f"[x402] Payment middleware enabled on {X402_NETWORK_LABEL} — disputes ($0.05), indicators/yields/correlation ($0.02–$0.03), metadata/search ($0.01), marketing ($0.03–$0.05), on-chain data ($0.02–$0.03)", flush=True)
     X402_ENABLED = True
     X402_ERROR = None
@@ -779,6 +1040,8 @@ try:
                         elif "aiservices.to" in route_path:
                             route_path = route_path.split("aiservices.to", 1)[-1]
 
+                        bazaar_ext = _build_bazaar_extension(route_path, route_desc)
+
                         # Enrich accepts with bazaar extension + fix payTo
                         for accept in payload.get("accepts", []):
                             # Fix payTo: ensure 0x prefix
@@ -789,7 +1052,9 @@ try:
                             # Add bazaar extension with full discovery info
                             if "extensions" not in accept:
                                 accept["extensions"] = {}
-                            accept["extensions"]["bazaar"] = _build_bazaar_extension(route_path, route_desc)
+                            accept["extensions"]["bazaar"] = bazaar_ext
+
+                        payload.setdefault("extensions", {})["bazaar"] = bazaar_ext
 
                         # Re-encode and update header
                         updated_json = _json_enrich.dumps(payload, separators=(',', ':'))
@@ -819,6 +1084,7 @@ except Exception as e:
 
 # --- MCP Remote Transport ---
 app.include_router(mcp_router)
+app.include_router(human_billing_router)
 print(f"[mcp] Remote MCP endpoint mounted at /mcp — 21 tools available", flush=True)
 
 
@@ -1129,44 +1395,28 @@ def _get_landing():
     return _landing_html
 
 
+def _live_capability_summary() -> dict:
+    """Generate discovery facts from the registered FastAPI schema, never stale copy."""
+    schema = app.openapi()
+    paths = schema.get("paths", {})
+    identity = [p for p in paths if p.startswith("/v1/erc8004/") or p.startswith("/v1/agents/") or p.startswith("/v1/evidence/") or p.startswith("/v1/claims/")]
+    return {"path_count": len(paths), "identity_evidence_paths": sorted(identity), "openapi": "/openapi.json", "generated": "runtime"}
+
+
 def _get_llms_full_markdown():
     """Return a concise markdown version of the landing page for content negotiation."""
-    return """# AgentServices — Premium APIs for AI Agents
+    live = _live_capability_summary()
+    return f"""# AgentServices — APIs for AI Agents
 
-53 paid APIs for AI agents. Data, search, market intelligence, DeFi strategy, cross-DEX arbitrage, AI inference. All via x402 (USDC on Base).
+AgentServices exposes {live['path_count']} registered API routes. Data, search, market intelligence, DeFi strategy, cross-DEX arbitrage, AI inference, ERC-8004 agent discovery, reputation, and evidence verification. Paid routes use x402 (USDC on Base).
 
-## What We Offer
+## Live capability discovery
 
-- **Crypto Data**: Prices, indicators (RSI, Bollinger, ATR), DeFi yields, whale tracking, exchange flows
-- **Market Intelligence**: Portfolio analysis, DeFi strategy reports, market pulse, on-chain overview
-- **Cross-DEX Arbitrage**: Real-time price discrepancies with gas-adjusted profitability modeling
-- **AI Inference**: LLM gateway (GPT-5.4, GPT-5.5, Gemini) via x402 micropayments
-- **Traditional Finance**: Stock quotes, SEC filings, commodities, FX rates, economic indicators
-- **Utility**: Web extraction, package security scans, SEO keyword research
-- **MCP Integration**: 37 tools via remote MCP server at /mcp
-
-## Quick Start
-
-```bash
-# Free: Get BTC price
-curl https://agentservices.to/v1/price/BTC
-
-# Paid: Get technical indicators (requires x402 payment)
-curl https://agentservices.to/v1/indicators/BTC
-
-# MCP config for Claude Desktop
-{"mcpServers":{"agentservices":{"url":"https://agentservices.to/mcp"}}}
-```
-
-## Links
-
-- [API Docs](https://agentservices.to/docs)
-- [Examples](https://agentservices.to/examples)
-- [GitHub](https://github.com/vbkotecha/agentservices-api)
-- [OpenAPI Spec](https://agentservices.to/openapi.json)
-- [x402 Manifest](https://agentservices.to/.well-known/x402.json)
+The capability list is generated from the deployed OpenAPI schema, not hardcoded marketing copy:
+- OpenAPI: https://agentservices.to/openapi.json
+- Catalog search: https://agentservices.to/v1/catalog/search
+- Identity and evidence routes: {', '.join(live['identity_evidence_paths'])}
 """
-
 
 @app.get("/")
 async def root(request: Request):
@@ -1220,6 +1470,41 @@ async def root(request: Request):
             "live": True,
         }
     return HTMLResponse(content=_get_landing())
+
+
+@app.get("/v1/catalog/search", tags=["Discovery"])
+async def catalog_search(query: str = "", tag: list[str] | None = Query(default=None), limit: int = 25):
+    """Find AgentServices capabilities by task, not by vendor or route."""
+    return {
+        "query": query,
+        "tools": search_catalog(query, tag, limit),
+        "total": len(search_catalog(query, tag, limit)),
+        "next": "Use GET /v1/catalog/tools/{id} for the call contract and quote.",
+    }
+
+
+@app.get("/v1/catalog/tools/{tool_id:path}", tags=["Discovery"])
+async def catalog_tool(tool_id: str):
+    """Return a single task-oriented tool contract and its current quote."""
+    tool = get_tool(tool_id)
+    if not tool:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Unknown catalog tool")
+    return tool
+
+
+@app.get("/v1/catalog/platforms", tags=["Discovery"])
+async def catalog_platforms():
+    """Return catalog metadata without overstating external provider coverage."""
+    tools = search_catalog(limit=100)
+    return {
+        "name": "AgentServices catalog",
+        "tool_count": len(tools),
+        "provider_count": 1,
+        "providers": [{"id": "agentservices", "status": "active", "credential_mode": "x402"}],
+        "scope": "first-party AgentServices endpoints",
+        "tools": tools,
+    }
 
 
 @app.get("/api")
@@ -1297,13 +1582,23 @@ async def api_discovery():
 
 @app.get("/health")
 async def health():
+    from human_billing.config import oauth_enabled, credits_enabled, human_door_enabled
     return {
         "status": "ok",
         "version": "5.3.0",
+        "deploy": {
+            "commit": os.environ.get("VERCEL_GIT_COMMIT_SHA"),
+            "ref": os.environ.get("VERCEL_GIT_COMMIT_REF"),
+            "env": os.environ.get("VERCEL_ENV"),
+        },
         "x402_enabled": X402_ENABLED,
         "x402_error": X402_ERROR,
         "x402_networks": X402_NETWORKS,
         "x402_facilitator": X402_FACILITATOR_URL,
+        "human_door_enabled": human_door_enabled(),
+        "oauth_enabled": oauth_enabled(),
+        "credits_enabled": credits_enabled(),
+        "billing_ledger": "stripe_customer_balance",
         "services": ["crypto_prices", "indicators", "defi_yields", "fear_greed", "geo", "metadata", "search", "swap_quote", "trending", "gas", "predictions", "news", "social_trending", "global", "disputes", "policies", "marketing_sentiment", "marketing_trends", "marketing_competitors", "marketing_content_gaps", "marketing_ad_copy", "whales", "exchange_flows", "correlation", "defi_tvl", "stablecoin_flows", "github_velocity", "agent_context", "macro", "inference", "quick_complete", "token_risk", "crypto_signals", "hn_sentiment", "npm_stats", "github_trending", "yield_comparison", "stock_quote", "stock_history", "sec_filings", "commodities", "economic_indicators", "fx_rates", "web_extract", "package_security", "seo_keywords", "deep_research", "portfolio_intelligence", "defi_strategy", "market_pulse", "onchain_overview", "arbitrage_scanner", "liquidation_map"],
     }
 
@@ -1324,18 +1619,8 @@ async def favicon():
 
 @app.get("/.well-known/ai-plugin.json")
 async def ai_plugin():
-    return {
-        "schema_version": "v1",
-        "name_for_model": "agentservices",
-        "name_for_human": "AgentServices",
-        "description_for_model": "Paid APIs for AI agents. Crypto, DeFi, stocks, FX, research, 37 MCP tools. x402 payments on Base.",
-        "description_for_human": "Financial data APIs for AI agents.",
-        "auth": {"type": "none"},
-        "api": {"type": "openapi", "url": "https://agentservices.to/openapi.json"},
-        "logo_url": "https://agentservices.to/favicon.ico",
-        "contact_email": "vbkotecha@gmail.com",
-        "legal_info_url": "https://agentservices.to/",
-    }
+    from discovery_surfaces import ai_plugin_manifest
+    return ai_plugin_manifest()
 
 
 @app.get("/skill.md")
@@ -1540,15 +1825,20 @@ async def agent_json():
 
 
 @app.get("/.well-known/mcp.json")
+@app.get("/mcp.json", include_in_schema=False)
 async def mcp_well_known():
     """MCP discovery file for mcpub and other MCP directory crawlers."""
-    return {
-        "name": "AgentServices",
-        "version": "5.3.0",
-        "description": "50+ x402-paid crypto/market data APIs for AI agents. 37 MCP tools across 54 services.",
-        "mcp_endpoint": "https://agentservices.to/mcp",
-        "website": "https://agentservices.to",
-    }
+    from discovery_surfaces import mcp_json
+    return mcp_json()
+
+
+@app.get("/server.json", include_in_schema=False)
+async def server_json():
+    """MCP Registry manifest for GEO/discovery crawlers."""
+    path = Path(__file__).parent.parent / "server.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="not found")
+    return json.loads(path.read_text())
 
 
 @app.get("/.well-known/x402.json")
@@ -1664,9 +1954,16 @@ async def sitemap_xml():
         "https://agentservices.to/docs",
         "https://agentservices.to/examples",
         "https://agentservices.to/llms.txt",
+        "https://agentservices.to/.well-known/llms.txt",
         "https://agentservices.to/llms-full.txt",
         "https://agentservices.to/openapi.json",
+        "https://agentservices.to/schema.json",
+        "https://agentservices.to/.well-known/openapi.json",
+        "https://agentservices.to/.well-known/schema.json",
         "https://agentservices.to/feed.json",
+        "https://agentservices.to/server.json",
+        "https://agentservices.to/mcp.json",
+        "https://agentservices.to/agents.txt",
         "https://agentservices.to/.well-known/x402.json",
         "https://agentservices.to/.well-known/mcp/server-card.json",
         "https://agentservices.to/.well-known/ai-catalog.json",
@@ -2037,97 +2334,6 @@ async def ai_catalog():
     }
 
 
-@app.get("/llms.txt")
-async def llms_txt():
-    """LLM-friendly API description for agent crawlers and AI discovery."""
-    lines = [
-        "# AgentServices",
-        "",
-        "> Paid APIs for AI agents. 53 services, 41 paid. 37 MCP tools. Crypto data, stocks, SEC filings, commodities, FX, inference gateway (gpt-5.4/5.5), token risk scoring, crypto signals, cross-DEX arbitrage scanner, web extraction, package security, SEO research, and more. All via x402 (USDC on Base).",
-        "",
-        "## Base URL",
-        "https://agentservices.to",
-        "",
-        "## Authentication",
-        "Paid endpoints use x402 protocol (USDC on Base Mainnet). Free endpoints require no auth.",
-        "",
-        "## Free Endpoints",
-        "- GET /v1/price/{symbol} — Current crypto price (e.g., BTC, ETH)",
-        "- GET /v1/prices?symbols=BTC,ETH,SOL — Batch crypto prices",
-        "- GET /v1/fear-greed — Crypto Fear & Greed Index (0-100)",
-        "- GET /v1/geo/{ip} — IP geolocation lookup",
-        "- GET /v1/global — Global market cap, volume, BTC dominance",
-        "- GET /v1/trending — Trending tokens being searched right now",
-        "- GET /v1/gas — Current Ethereum gas prices (slow/standard/fast)",
-        "- GET /v1/swap/quote — DEX swap quote (0x API, 6 chains)",
-        "- GET /v1/predictions — Active Polymarket prediction markets",
-        "- GET /v1/predictions/{slug} — Specific prediction market details",
-        "- GET /v1/news — Latest crypto and blockchain news",
-        "- GET /v1/social — Trending coins, categories, NFTs",
-        "",
-        "## Paid Endpoints (x402 / USDC on Base)",
-        "- GET /v1/indicators/{symbol} — RSI, Bollinger Bands, ATR, Support/Resistance ($0.02)",
-        "- GET /v1/yields — Top DeFi yield pools by TVL ($0.02)",
-        "- GET /v1/metadata?url=... — URL metadata extraction and unfurling ($0.01)",
-        "- GET /v1/search?q=... — AI-powered web search ($0.01)",
-        "- POST /v1/marketing/sentiment — AI brand sentiment analysis ($0.03)",
-        "- POST /v1/marketing/trends — Industry trend detection with velocity ($0.03)",
-        "- POST /v1/marketing/competitors — Competitive intelligence ($0.05)",
-        "- POST /v1/marketing/content-gaps — SEO content gap analysis ($0.04)",
-        "- POST /v1/marketing/ad-copy — AI ad copy generator ($0.05)",
-        "- GET /v1/whales — Large whale transactions BTC/ETH ($0.02)",
-        "- GET /v1/exchange-flows — CEX reserve flows ($0.02)",
-        "- GET /v1/correlation — 30-day cross-asset correlation matrix ($0.03)",
-        "- GET /v1/defi-tvl — DeFi protocol TVL rankings ($0.02)",
-        "- GET /v1/stablecoin-flows — Stablecoin market caps and supply ($0.02)",
-        "- GET /v1/github-velocity — GitHub crypto repo velocity scores ($0.02)",
-        "- GET /v1/macro — Macro economic indicators ($0.02)",
-        "- POST /v1/inference — LLM inference gateway, gpt-5.4/5.4-mini/5.5 ($0.03)",
-        "- POST /v1/complete?prompt=... — Quick text completion ($0.03)",
-        "- GET /v1/token-risk/{token} — Token risk scoring ($0.03)",
-        "- GET /v1/signals/{symbol} — Crypto buy/sell signals ($0.04)",
-        "- GET /v1/hn-sentiment — Hacker News tech sentiment ($0.02)",
-        "- GET /v1/npm-stats/{package} — NPM download trends ($0.02)",
-        "- GET /v1/github-trending — GitHub trending repos ($0.02)",
-        "- GET /v1/yield-comparison — DeFi yield comparison with risk ($0.03)",
-        "- GET /v1/stocks/{ticker} — Real-time stock quote ($0.02)",
-        "- GET /v1/stocks/{ticker}/history — Historical OHLCV ($0.03)",
-        "- GET /v1/sec/{ticker} — SEC filings parser, 10-K/10-Q/Form 4 ($0.03)",
-        "- GET /v1/commodities — Oil, gold, silver, wheat prices ($0.03)",
-        "- GET /v1/economic — CPI, GDP, Fed rate (FRED) ($0.03)",
-        "- GET /v1/fx?base=USD — 30+ currency exchange rates ($0.003)",
-        "- GET /v1/extract?url=... — Web content extraction ($0.002)",
-        "- GET /v1/security/{package} — Package vulnerability scan ($0.02)",
-        "- GET /v1/seo/keywords?keyword=... — SEO keyword research ($0.01)",
-        "- GET /v1/research?q=... — Deep research: search + extract + synthesize ($0.05)",
-        "- GET /v1/portfolio?symbol=... — Portfolio intelligence: price + signal + risk + sentiment ($0.10)",
-        "- GET /v1/defi-strategy?chain=... — DeFi strategy: yields + TVL + comparison + risk ($0.25)",
-        "- GET /v1/market-pulse — Market pulse: sentiment + trending + news + whales ($0.05)",
-        "- GET /v1/onchain-overview — On-chain intelligence: whales + flows + correlation + DeFi TVL ($0.15)",
-        "",
-        "## Free Agent Tools",
-        "- GET /v1/agent-context — Paste-ready market context for LLM prompts",
-        "",
-        "## Example Usage",
-        "```",
-        "# Free: Get BTC price",
-        "curl https://agentservices.to/v1/price/BTC",
-        "",
-        "# Paid: Get BTC indicators (requires x402 payment)",
-        "curl https://agentservices.to/v1/indicators/BTC",
-        "```",
-        "",
-        f"## Payment Wallet\n{X402_WALLET}",
-        "",
-        "## Links",
-        "- API Docs: https://agentservices.to/docs",
-        "- Examples: https://agentservices.to/examples",
-        "- GitHub: https://github.com/vbkotecha/agentservices-api",
-    ]
-    from starlette.responses import PlainTextResponse
-    return PlainTextResponse(content="\n".join(lines), media_type="text/plain")
-
-
 @app.get("/robots.txt")
 async def robots_txt():
     """Robots.txt with explicit AI crawler rules for agent discovery."""
@@ -2187,9 +2393,17 @@ async def robots_txt():
     return PlainTextResponse(content="\n".join(lines), media_type="text/plain")
 
 
+@app.get(f"/{INDEXNOW_KEY}.txt", include_in_schema=False)
+async def indexnow_key():
+    """IndexNow key verification file for search engine URL submission."""
+    return PlainTextResponse(content=INDEXNOW_KEY, media_type="text/plain")
+
+
 @app.get("/schema.json")
+@app.get("/.well-known/schema.json", include_in_schema=False)
+@app.get("/.well-known/openapi.json", include_in_schema=False)
 async def openapi_schema():
-    """Explicit OpenAPI schema endpoint for crawlers that prefer /schema.json over /openapi.json."""
+    """OpenAPI schema aliases for crawlers: /schema.json, /.well-known/schema.json, /.well-known/openapi.json (same body as /openapi.json)."""
     return app.openapi()
 
 
@@ -2386,24 +2600,6 @@ async def web_manifest():
         "display": "standalone",
         "categories": ["developer", "finance", "data"],
         "icons": [],
-    }
-
-
-@app.get("/.well-known/ai-plugin.json")
-async def ai_plugin_manifest():
-    """OpenAI plugin manifest for ChatGPT plugin discovery."""
-    return {
-        "schema_version": "v1",
-        "name_for_human": "AgentServices",
-        "name_for_model": "agentservices",
-        "description_for_human": "Paid APIs for AI agents — crypto data, market intelligence, DeFi analytics, on-chain analytics, search, and AI inference. Pay per request with USDC on Base.",
-        "description_for_model": "Access 50+ API endpoints for crypto prices, technical indicators, DeFi yields, on-chain analytics, whale tracking, market sentiment, web search, LLM inference, portfolio intelligence, and dispute resolution. Free endpoints need no payment. Paid endpoints use x402 protocol (USDC on Base).",
-        "auth": {"type": "none"},
-        "api": {"type": "openapi", "url": "https://agentservices.to/openapi.json"},
-        "logo_url": "https://agentservices.to/logo.png",
-        "contact_email": "vbkotecha@gmail.com",
-        "legal_info_url": "https://agentservices.to",
-        "url": "https://agentservices.to",
     }
 
 
@@ -2634,9 +2830,67 @@ async def llm_inference(req: InferenceRequest):
 @app.post("/v1/complete", tags=["Inference"],
           summary="Quick Text Completion",
           description="Send a prompt, get a completion. Simpler than /v1/inference. Costs $0.03 USDC via x402.")
-async def quick_completion(prompt: str, model: str = "gpt-5.4-mini", max_tokens: int = 500):
+async def quick_completion(prompt: str, model: str = "auto", max_tokens: int = 500):
     """Quick text completion ($0.03 per call via x402)"""
     return quick_complete(prompt=prompt, model=model, max_tokens=max_tokens)
+
+
+# --- OpenAI-Compatible Chat Completions (400+ models) ---
+
+class ChatCompletionRequest(BaseModel):
+    model: str = Field(default="auto", description="Model ID or 'auto' for smart routing. 400+ models available.")
+    messages: List[dict] = Field(description="Chat messages in OpenAI format [{role, content}]")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    max_tokens: int = Field(default=1000, ge=1, le=4096)
+    stream: bool = Field(default=False)
+    profile: str = Field(default="auto", description="Router profile: auto, eco, premium, free")
+
+@app.post("/v1/chat/completions", tags=["Inference"],
+          summary="Chat Completions (OpenAI-compatible, 400+ models)",
+          description="Drop-in OpenAI replacement. 400+ models via OpenRouter. Dynamic pricing: provider cost + 5%, floor $0.003. Use model='auto' for smart routing.")
+async def chat_completions_endpoint(req: ChatCompletionRequest):
+    """OpenAI-compatible chat completions — dynamic pricing via x402"""
+    return chat_completions(
+        model=req.model,
+        messages=req.messages,
+        temperature=req.temperature,
+        max_tokens=req.max_tokens,
+        profile=req.profile,
+    )
+
+@app.get("/v1/models/all", tags=["Inference"],
+         summary="List All Available Models",
+         description="Fetch the complete live model list from OpenRouter (400+ models). FREE.")
+async def all_models():
+    """Full live model catalog from OpenRouter (FREE)"""
+    return list_all_openrouter_models()
+
+
+# --- Media Generation ---
+
+class ImageRequest(BaseModel):
+    prompt: str = Field(description="Image description")
+    size: str = Field(default="1024x1024", description="256x256, 512x512, or 1024x1024")
+    model: str = Field(default="gpt-image-2")
+
+@app.post("/v1/images/generations", tags=["Media"],
+          summary="AI Image Generation",
+          description="Generate an image from a text prompt. $0.05 USDC via x402.")
+async def image_generation(req: ImageRequest):
+    """AI image generation ($0.05 per image via x402)"""
+    return generate_image(prompt=req.prompt, size=req.size, model=req.model)
+
+class TTSRequest(BaseModel):
+    text: str = Field(description="Text to convert to speech")
+    voice: str = Field(default="alloy", description="Voice: alloy, echo, fable, onyx, nova, shimmer")
+    model: str = Field(default="openai/gpt-audio-mini")
+
+@app.post("/v1/audio/speech", tags=["Media"],
+          summary="Text-to-Speech",
+          description="Convert text to speech audio. $0.05 USDC via x402.")
+async def tts_endpoint(req: TTSRequest):
+    """Text-to-speech ($0.05 per call via x402)"""
+    return text_to_speech(text=req.text, model=req.model, voice=req.voice)
 
 
 # --- Synthesis Endpoints ---
@@ -2740,6 +2994,14 @@ async def fx_rates_alias(base: str = "USD"):
     return get_fx_rates(base)
 
 
+@app.get("/v1/gov/us/ca/entity", tags=["Government"],
+         summary="California Business Entity Status",
+         description="Public California SOS business entity lookup by name or entity number. SKU ca.entity.status. $0.03 USDC via x402.")
+async def ca_entity_status(q: str = Query(..., description="Business name or California entity number")):
+    """California entity status ($0.03 per call via x402)"""
+    return get_ca_entity_status(q)
+
+
 # ============================================================
 # UTILITY ENDPOINTS (v5.1.0 — Gap Fillers)
 # ============================================================
@@ -2764,6 +3026,13 @@ async def package_security(package: str, ecosystem: str = "PyPI"):
 async def keyword_research(keyword: str):
     """SEO keyword research ($0.01 per call via x402)"""
     return seo_keywords(keyword)
+
+@app.get("/v1/backlinks", tags=["Utility"],
+         summary="Backlink Intelligence",
+         description="Backlinks — deduplicated URL list with unique referring domains, capped at 1,000 URLs. $0.02 USDC via x402.")
+async def backlink_research(domain: str, site_url: str | None = None):
+    """Backlink intelligence ($0.02 per call via x402)."""
+    return backlink_intelligence(domain, site_url)
 
 
 # --- Deep Research (Flagship Bundled Endpoint) ---
@@ -3267,75 +3536,23 @@ async def privacy_policy():
     }
 
 
-@app.get("/.well-known/oauth-protected-resource")
-async def oauth_protected_resource():
-    """OAuth Protected Resource metadata (RFC 9728).
-    Declares that our MCP server uses no authentication for free tools.
-    Required for Anthropic Connector Directory compliance."""
-    return {
-        "resource": "https://agentservices.to/mcp",
-        "authorization_servers": [],
-        "bearer_methods_supported": [],
-        "resource_documentation": "https://agentservices.to/docs",
-        "resource_name": "AgentServices MCP Server",
-        "resource_description": "Free tools require no auth. Paid tools use x402 (HTTP 402) payment. No OAuth required for discovery or free tool access.",
-    }
-
-
-@app.get("/.well-known/oauth-authorization-server")
-async def oauth_authorization_server():
-    """OAuth Authorization Server metadata.
-    AgentServices does not operate an OAuth server — free tools are public, paid tools use x402."""
-    return {
-        "issuer": "https://agentservices.to",
-        "authorization_endpoint": None,
-        "token_endpoint": None,
-        "response_types_supported": [],
-        "grant_types_supported": [],
-        "note": "AgentServices does not use OAuth. Free tools are publicly accessible. Paid tools use x402 micropayments (HTTP 402).",
-    }
+# OAuth well-known endpoints are served by human_billing.router (Google OAuth when configured).
 
 
 # --- llms.txt (agent-accessible documentation index) ---
 @app.get("/llms.txt", tags=["Discovery"],
          summary="LLM-readable service index",
          response_class=PlainTextResponse)
+@app.get("/.well-known/llms.txt", tags=["Discovery"],
+         summary="LLM-readable service index (well-known)",
+         include_in_schema=False,
+         response_class=PlainTextResponse)
 async def llms_txt():
     """Canonical index for AI agents and LLM crawlers. Follows the llms.txt convention."""
     from starlette.responses import PlainTextResponse
-    return PlainTextResponse(content="""# AgentServices
-
-> Paid APIs for AI agents. 53 services, 41 paid. Data, search, market intelligence, and inference. Agents pay per call via x402 (USDC on Base).
-
-## Quick Start
-- Free endpoints: GET https://agentservices.to/v1/prices (crypto prices), GET https://agentservices.to/v1/fear-greed (market sentiment)
-- Paid endpoints: GET https://agentservices.to/v1/indicators/BTC (0.02 USDC), GET https://agentservices.to/v1/search?q=... (0.01 USDC)
-- MCP server: https://agentservices.to/mcp (37 tools, Streamable HTTP)
-- Full docs: https://agentservices.to/docs
-- OpenAPI spec: https://agentservices.to/openapi.json
-- Health check: https://agentservices.to/health
-
-## Key Endpoints
-- [Crypto Prices](https://agentservices.to/v1/prices): Free. Real-time prices for 1000+ tokens.
-- [Technical Indicators](https://agentservices.to/v1/indicators/BTC): $0.02. RSI, MACD, Bollinger, ATR, volume analysis.
-- [DeFi Yields](https://agentservices.to/v1/yields): $0.02. Yield farming opportunities across protocols.
-- [Search](https://agentservices.to/v1/search): $0.01. Web search with structured extraction.
-- [Market Pulse](https://agentservices.to/v1/market-pulse): $0.05. Sentiment + trending + news + whales in one call.
-- [On-Chain Overview](https://agentservices.to/v1/onchain-overview): $0.15. Whales + flows + correlation + TVL.
-- [Portfolio Intelligence](https://agentservices.to/v1/portfolio): $0.10. Price + signal + risk + sentiment bundled.
-- [DeFi Strategy](https://agentservices.to/v1/defi-strategy): $0.25. Full strategy report with recommendations.
-
-## Payment
-- Protocol: x402 (HTTP 402 Payment Required)
-- Asset: USDC on Base (eip155:8453)
-- Wallet: 0x9863aB6242663FCc84c33632741711dB78f8Fd15
-- No API keys, no accounts, no subscriptions
-
-## Integration
-- MCP: Add https://agentservices.to/mcp to your MCP client
-- Python SDK: pip install agentservices
-- npm: npx agentservices-mcp
-""", media_type="text/plain")
+    from discovery_surfaces import llms_txt_content
+    live = _live_capability_summary()
+    return PlainTextResponse(content=llms_txt_content(live["path_count"]), media_type="text/plain")
 
 
 # --- agents.txt (agent instructions) ---
@@ -3345,36 +3562,9 @@ async def llms_txt():
 async def agents_txt():
     """Instructions for AI agents crawling or using AgentServices."""
     from starlette.responses import PlainTextResponse
-    return PlainTextResponse(content="""# AgentServices — Agent Instructions
-
-## What This Service Does
-AgentServices provides paid API endpoints for AI agents. 53 services covering crypto market data, on-chain analytics, DeFi intelligence, market sentiment, stock data, web extraction, and AI inference.
-
-## How to Pay
-1. Make a GET/POST request to any paid endpoint
-2. Server responds with HTTP 402 + payment details (x402 protocol)
-3. Sign payment with your wallet (USDC on Base)
-4. Retry request with payment proof in header
-5. Server verifies on-chain and returns data
-
-## Free Endpoints (no payment needed)
-- GET /v1/prices — Crypto prices
-- GET /v1/fear-greed — Fear & Greed index
-- GET /v1/trending — Trending tokens
-- GET /v1/gas — Gas prices
-- GET /v1/news — Crypto news
-- GET /v1/global — Global market stats
-
-## MCP Server
-Endpoint: https://agentservices.to/mcp
-Transport: Streamable HTTP
-Tools: 38 (free + paid)
-Auth: None for free tools. Paid tools use x402.
-
-## Contact
-Email: hustlemode@agentmail.to
-Website: https://agentservices.to
-""", media_type="text/plain")
+    from discovery_surfaces import agents_txt_content
+    live = _live_capability_summary()
+    return PlainTextResponse(content=agents_txt_content(live["path_count"]), media_type="text/plain")
 
 
 # --- agents.json (structured agent discovery per agents-txt spec) ---
@@ -3479,6 +3669,7 @@ _PAID_OPERATIONS = {
     "/v1/commodities": "$0.02",
     "/v1/economic": "$0.02",
     "/v1/fx-rates": "$0.003",
+    "/v1/gov/us/ca/entity": "$0.03",
     "/v1/extract": "$0.002",
     "/v1/security/{package}": "$0.02",
     "/v1/seo/keywords": "$0.01",
@@ -3560,44 +3751,135 @@ class ImageRequest(BaseModel):
     size: str = Field(default="1024x1024", description="Image size: 1024x1024, 1792x1024, 1024x1792")
     model: str = Field(default="gpt-image-2", description="Image model")
 
-@app.get("/v1/models/all", tags=["Media"],
-          summary="List All Models",
-          description="List all available models across CodexSale and OpenRouter. FREE.")
-async def all_models():
-    """List all models (FREE)"""
-    return list_all_models()
+# (Legacy media endpoints removed — now defined above in the Inference/Media sections)
 
-@app.post("/v1/images/generations", tags=["Media"],
-          summary="AI Image Generation",
-          description="Generate images from text prompts via gpt-image-2. $0.05 via x402.")
-async def image_gen(req: ImageRequest):
-    """Image generation ($0.05 via x402)"""
-    return generate_image(req.prompt, req.size, req.model)
 
-class TTSRequest(BaseModel):
-    text: str = Field(description="Text to convert to speech")
-    model: str = Field(default="openai/gpt-audio-mini", description="TTS model")
-    voice: str = Field(default="alloy", description="Voice: alloy, echo, fable, onyx, nova, shimmer")
+# ============================================================
+# IDENTITY, REPUTATION & EVIDENCE (ERC-8004-compatible)
+# ============================================================
 
-@app.post("/v1/audio/speech", tags=["Media"],
-          summary="Text-to-Speech",
-          description="Convert text to speech audio. Multiple voices available. $0.05 via x402.")
-async def tts(req: TTSRequest):
-    """Text-to-speech ($0.05 via x402)"""
-    return text_to_speech(req.text, req.model, req.voice)
+class AgentRegistration(BaseModel):
+    wallet: str = Field(min_length=3)
+    name: str = Field(min_length=1)
+    endpoint: str = ""
+    metadata: dict = Field(default_factory=dict)
 
-class MultiModelRequest(BaseModel):
-    model: str = Field(description="Model ID (e.g., anthropic/claude-sonnet-4-6, google/gemini-3-pro)")
-    messages: List[dict] = Field(description="Chat messages [{role, content}]")
-    temperature: float = Field(default=0.7)
-    max_tokens: int = Field(default=1000)
+class FeedbackRequest(BaseModel):
+    score: int = Field(ge=0, le=100)
+    comment: str = ""
+    job_id: str = ""
+    evaluator: str = ""
 
-@app.post("/v1/chat/completions", tags=["Media"],
-          summary="Multi-Model LLM Routing",
-          description="Route to ANY of 344+ models via OpenRouter. GPT, Claude, Gemini, Grok, DeepSeek, Qwen, and more. $0.03 via x402.")
-async def multi_model(req: MultiModelRequest):
-    """Multi-model inference ($0.03 via x402)"""
-    return multi_model_inference(req.model, req.messages, req.temperature, req.max_tokens)
+class EvidenceRequest(BaseModel):
+    agent_id: str = ""
+    subject: str = Field(min_length=1)
+    data: object
+    source: str = ""
+
+class ClaimsRequest(BaseModel):
+    evidence_ids: list[str] = Field(min_length=1)
+
+@app.get("/v1/erc8004/provider", tags=["Identity"])
+async def erc8004_provider_info():
+    return erc8004_provider.provider_info()
+
+@app.get("/v1/erc8004/agents", tags=["Identity"])
+async def erc8004_agents(limit: int = Query(25, ge=1, le=100), offset: int = Query(0, ge=0), chain_id: int | None = None, payment: str = ""):
+    try:
+        return erc8004_provider.agents(limit, offset, chain_id, payment)
+    except RuntimeError as error:
+        raise HTTPException(status_code=getattr(error, "status_code", 502), detail=getattr(error, "detail", str(error)))
+
+@app.get("/v1/erc8004/agents/{agent_id}", tags=["Identity"])
+async def erc8004_agent(agent_id: str, payment: str = ""):
+    try:
+        return erc8004_provider.agent(agent_id, payment)
+    except RuntimeError as error:
+        raise HTTPException(status_code=getattr(error, "status_code", 502), detail=getattr(error, "detail", str(error)))
+
+@app.get("/v1/erc8004/agents/{agent_id}/reputation", tags=["Identity"])
+async def erc8004_reputation(agent_id: str, payment: str = ""):
+    try:
+        return erc8004_provider.reputation(agent_id, payment)
+    except RuntimeError as error:
+        raise HTTPException(status_code=getattr(error, "status_code", 502), detail=getattr(error, "detail", str(error)))
+
+@app.get("/v1/erc8004/agents/{agent_id}/feedback", tags=["Identity"])
+async def erc8004_feedback(agent_id: str, limit: int = Query(25, ge=1, le=100), offset: int = Query(0, ge=0), payment: str = ""):
+    try:
+        return erc8004_provider.feedback(agent_id, limit, offset, payment)
+    except RuntimeError as error:
+        raise HTTPException(status_code=getattr(error, "status_code", 502), detail=getattr(error, "detail", str(error)))
+
+@app.get("/v1/erc8004/agents/{agent_id}/validations", tags=["Identity"])
+async def erc8004_validations(agent_id: str, limit: int = Query(25, ge=1, le=100), offset: int = Query(0, ge=0), payment: str = ""):
+    try:
+        return erc8004_provider.validations(agent_id, limit, offset, payment)
+    except RuntimeError as error:
+        raise HTTPException(status_code=getattr(error, "status_code", 502), detail=getattr(error, "detail", str(error)))
+
+@app.post("/v1/agents/register", tags=["Identity"])
+async def agent_register(req: AgentRegistration):
+    return register_agent(req.wallet, req.name, req.endpoint, req.metadata)
+
+@app.get("/v1/agents/{agent_id}", tags=["Identity"])
+async def agent_detail(agent_id: str):
+    agent = get_agent(agent_id)
+    if not agent:
+        from fastapi import HTTPException
+        raise HTTPException(404, "agent not found")
+    return agent
+
+@app.post("/v1/agents/{agent_id}/feedback", tags=["Identity"])
+async def agent_feedback(agent_id: str, req: FeedbackRequest):
+    try:
+        return add_feedback(agent_id, req.score, req.comment, req.job_id, req.evaluator)
+    except KeyError:
+        from fastapi import HTTPException
+        raise HTTPException(404, "agent not found")
+
+@app.get("/v1/agents/{agent_id}/reputation", tags=["Identity"])
+async def agent_reputation(agent_id: str):
+    try:
+        return reputation(agent_id)
+    except KeyError:
+        from fastapi import HTTPException
+        raise HTTPException(404, "agent not found")
+
+@app.post("/v1/agents/{agent_id}/verify", tags=["Identity"])
+async def agent_verify(agent_id: str, challenge: str = ""):
+    try:
+        return verify_agent(agent_id, challenge)
+    except KeyError:
+        from fastapi import HTTPException
+        raise HTTPException(404, "agent not found")
+
+@app.post("/v1/evidence/snapshot", tags=["Evidence"])
+async def evidence_snapshot(req: EvidenceRequest):
+    return snapshot(req.agent_id, req.subject, req.data, req.source)
+
+@app.post("/v1/evidence/verify", tags=["Evidence"])
+async def evidence_verify(evidence_id: str):
+    try:
+        return verify_evidence(evidence_id)
+    except KeyError:
+        from fastapi import HTTPException
+        raise HTTPException(404, "evidence not found")
+
+@app.post("/v1/claims/check", tags=["Evidence"])
+async def claims_check(req: ClaimsRequest):
+    return check_claims(req.evidence_ids)
+
+# ============================================================
+# VOICE GATEWAY (v5.3.0 — Phone, Calls)
+# ============================================================
+
+@app.get("/v1/phone", tags=["Voice"],
+          summary="Phone Number Info",
+          description="Get the AgentServices phone number and capabilities. FREE.")
+async def phone_info():
+    """Phone number info (FREE)"""
+    return get_phone_number()
 
 
 # ============================================================
