@@ -6,9 +6,10 @@ Voice calls: $0.54 per call (75% margin, Twilio costs ~$0.10/min)
 import urllib.request
 import json
 import base64
-from pathlib import Path
 
-TWILIO_CONFIG = json.loads(Path("/root/.letta/keys/twilio.json").read_text()) if Path("/root/.letta/keys/twilio.json").exists() else {}
+from letta_keys import load_twilio_config
+
+TWILIO_CONFIG = load_twilio_config()
 
 TWILIO_SID = TWILIO_CONFIG.get("account_sid", "")
 TWILIO_TOKEN = TWILIO_CONFIG.get("auth_token", "")

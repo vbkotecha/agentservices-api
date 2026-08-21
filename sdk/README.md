@@ -5,13 +5,15 @@ Client SDK for [AgentServices](https://agentservices.to) — paid data APIs for 
 ## Install
 
 ```bash
-npm install aiservices-client
+npm install @agentservices/client
 ```
+
+For the complete buyer path from discovery through a buyer-retained receipt, follow [`docs/buyer-quickstart.md`](../docs/buyer-quickstart.md). The exact next action is to run `node examples/sdk_free_price_buyer_proof.js BTC ETH` from the repository root.
 
 ## Quick Start
 
 ```javascript
-const { AgentServicesClient } = require("aiservices-client");
+const { AgentServicesClient } = require("@agentservices/client");
 
 const client = new AgentServicesClient();
 
@@ -65,7 +67,16 @@ File disputes using 7 policy templates:
 
 ## x402 Payment
 
-Paid endpoints use the [x402 protocol](https://x402.org) with USDC on Base Mainnet.
+Paid endpoints use the [x402 protocol](https://x402.org) with USDC on Base Mainnet. A request without proof returns HTTP 402 with the authoritative terms for that call; the SDK exposes this challenge rather than pretending it has paid.
+
+Buyer sequence:
+
+1. Call a free method to verify connectivity.
+2. Call one paid method and inspect its structured 402 challenge.
+3. Pay the returned terms with an x402-compatible wallet, then retry.
+4. Retain the successful response and payment reference; the repository receipt builder can hash both for portable evidence.
+
+The challenge is price discovery, not proof of settlement. The SDK and its no-spend examples do not claim adoption, settlement, or revenue.
 
 To enable automatic payment, pass wallet credentials:
 

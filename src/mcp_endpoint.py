@@ -91,6 +91,20 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "web_search",
+        "description": "Web search with structured results — same as GET /v1/search ($0.01 x402)",
+        "title": "Web Search",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "q": {"type": "string", "description": "Search query"},
+                "num_results": {"type": "integer", "description": "Max results", "default": 5}
+            },
+            "required": ["q"]
+        }
+    },
+    {
         "name": "resolve_dispute",
         "description": "Submit a dispute for AI-powered policy-driven ruling. 7 policy templates available ($0.05 x402)",
         "title": "AI Dispute Resolution",
@@ -465,7 +479,63 @@ MCP_TOOLS = [
             },
             "required": []
         }
-    }
+    },
+    {
+        "name": "chat",
+        "description": "LLM chat completion — 400+ models (GPT, Claude, Gemini, DeepSeek, Grok, Llama). Use model='auto' for smart routing. OpenAI-compatible ($0.03 x402)",
+        "title": "AI Chat Completion",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "Model ID or 'auto' for smart routing", "default": "auto"},
+                "messages": {"type": "array", "items": {"type": "object"}, "description": "Chat messages [{role, content}]"},
+                "temperature": {"type": "number", "default": 0.7},
+                "max_tokens": {"type": "integer", "default": 1000},
+                "profile": {"type": "string", "description": "Router profile: auto/eco/premium/free", "default": "auto"}
+            },
+            "required": ["messages"]
+        }
+    },
+    {
+        "name": "generate_image",
+        "description": "Generate an AI image from a text prompt via gpt-image-2 ($0.05 x402)",
+        "title": "AI Image Generation",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "Image description"},
+                "size": {"type": "string", "default": "1024x1024", "description": "256x256, 512x512, or 1024x1024"}
+            },
+            "required": ["prompt"]
+        }
+    },
+    {
+        "name": "text_to_speech",
+        "description": "Convert text to speech audio with natural voices ($0.05 x402)",
+        "title": "Text-to-Speech",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "Text to convert to speech"},
+                "voice": {"type": "string", "default": "alloy", "description": "Voice: alloy, echo, fable, onyx, nova, shimmer"}
+            },
+            "required": ["text"]
+        }
+    },
+    {
+        "name": "buy_credits",
+        "description": "Get a Stripe Checkout URL to buy a $10 prepaid credit pack (requires Google OAuth login)",
+        "title": "Buy Credits",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {"type": "object", "properties": {}}
+    },
+    {
+        "name": "credit_balance",
+        "description": "Check your prepaid credit balance (requires Google OAuth login)",
+        "title": "Credit Balance",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {"type": "object", "properties": {}}
+    },
 ]
 
 MCP_RESOURCES = [
@@ -483,40 +553,63 @@ MCP_RESOURCES = [
     }
 ]
 
-# Static server card for MCP discovery (Smithery, mcp-marketplace.io)
-SERVER_CARD = {
-    "serverInfo": {
-        "name": "AgentServices",
-        "version": "5.3.0",
-        "description": "Paid APIs for AI agents — 53 services, 41 paid. 37 MCP tools. Crypto, stocks, SEC, commodities, FX, inference, signals, extraction, security, portfolio intelligence, DeFi strategy, market pulse, on-chain overview. x402 on Base."
-    },
-    "transport": {
-        "type": "streamable-http",
-        "endpoint": "https://agentservices.to/mcp"
-    },
-    "pricing": {
-        "model": "pay-per-use",
-        "protocol": "x402 (HTTP 402)",
-        "currency": "USDC on Base",
-        "free_tools": ["crypto_prices", "fear_greed", "ip_geolocation", "list_policies", "agent_context"],
-        "paid_tools": {
-            "technical_indicators": "$0.02",
-            "defi_yields": "$0.02",
-            "url_metadata": "$0.01",
-            "resolve_dispute": "$0.05",
-            "whale_tracking": "$0.02",
-            "exchange_flows": "$0.02",
-            "correlation_matrix": "$0.03",
-            "defi_tvl": "$0.02",
-            "stablecoin_flows": "$0.02",
-            "github_velocity": "$0.02",
-            "macro_indicators": "$0.02"
-        }
-    },
-    "repository": "https://github.com/vbkotecha/agentservices-api",
-    "documentation": "https://agentservices.to/docs",
-    "tools": [{"name": t["name"], "description": t["description"]} for t in MCP_TOOLS]
-}
+from discovery_surfaces import MCP_URL, mcp_auth_metadata, mcp_pricing_metadata
+
+
+def build_server_card() -> dict:
+    """MCP server card for GEO/discovery crawlers (Smithery, ChatGPT, mcp-marketplace.io)."""
+    description = (
+        "Paid APIs for AI agents — 53 services, 41 paid. 37 MCP tools. "
+        "ChatGPT connector: Google OAuth + Stripe credits at "
+        f"{MCP_URL}. Wallet agents: x402 USDC on Base for REST."
+    )
+    card = {
+        "serverInfo": {
+            "name": "AgentServices",
+            "version": "5.3.0",
+            "description": description,
+        },
+        "transport": {
+            "type": "streamable-http",
+            "endpoint": MCP_URL,
+        },
+        "authentication": mcp_auth_metadata(),
+        "pricing": {
+            "model": "pay-per-use",
+            "protocol": "x402 (HTTP 402)",
+            "currency": "USDC on Base",
+            "rest": "Wallet agents pay via HTTP 402 on REST endpoints",
+            "free_tools": ["crypto_prices", "fear_greed", "ip_geolocation", "list_policies", "agent_context"],
+            "paid_tools": {
+                "technical_indicators": "$0.02",
+                "defi_yields": "$0.02",
+                "url_metadata": "$0.01",
+                "resolve_dispute": "$0.05",
+                "whale_tracking": "$0.02",
+                "exchange_flows": "$0.02",
+                "correlation_matrix": "$0.03",
+                "defi_tvl": "$0.02",
+                "stablecoin_flows": "$0.02",
+                "github_velocity": "$0.02",
+                "macro_indicators": "$0.02",
+            },
+        },
+        "repository": "https://github.com/vbkotecha/agentservices-api",
+        "documentation": "https://agentservices.to/docs",
+        "tools": [{"name": t["name"], "description": t["description"]} for t in MCP_TOOLS],
+    }
+    human_pricing = mcp_pricing_metadata().get("mcp_human")
+    if human_pricing:
+        card["pricing"]["mcp_human"] = human_pricing
+    return card
+
+
+def _mcp_auth_metadata() -> dict:
+    return mcp_auth_metadata()
+
+
+def _mcp_pricing_metadata() -> dict:
+    return mcp_pricing_metadata()
 
 
 @router.options("/mcp")
@@ -646,7 +739,15 @@ async def mcp_handler(request: Request):
         tool_name = params.get("name", "")
         args = params.get("arguments", {})
 
-        result = await _execute_tool(tool_name, args)
+        billing_ctx, billing_error = _prepare_billing(request, tool_name, req_id)
+        if billing_error:
+            return JSONResponse(billing_error, status_code=402)
+
+        result = await _execute_tool(tool_name, args, request)
+
+        if billing_ctx:
+            _finalize_billing(billing_ctx, result)
+
         return {
             "jsonrpc": "2.0",
             "id": req_id,
@@ -675,12 +776,119 @@ async def mcp_handler(request: Request):
     )
 
 
-async def _execute_tool(tool_name: str, args: dict):
+def _is_tool_failure(result) -> bool:
+    return isinstance(result, dict) and bool(result.get("error"))
+
+
+def _prepare_billing(request: Request, tool_name: str, req_id):
+    """Check auth and balance for paid MCP tools. Debit happens after success."""
+    from human_billing.pricing import is_paid_mcp_tool, tool_price_usd
+    from human_billing.router import authenticate_mcp_request
+    from human_billing.config import credits_enabled, oauth_enabled
+    from human_billing.credits import get_balance, InsufficientCredits
+    from human_billing.stripe_billing import create_checkout_session
+
+    if not is_paid_mcp_tool(tool_name):
+        return None, None
+
+    user = authenticate_mcp_request(request)
+    if not user:
+        if oauth_enabled():
+            return None, {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {
+                    "code": -32000,
+                    "message": "Authentication required for paid MCP tools. Connect via Google OAuth in ChatGPT.",
+                },
+            }
+        return None, None
+
+    if not credits_enabled():
+        return None, {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "error": {
+                "code": -32002,
+                "message": "Credits billing is not configured on this deployment.",
+            },
+        }
+
+    price = tool_price_usd(tool_name)
+    balance = get_balance(user["sub"])
+    if balance < price:
+        exc = InsufficientCredits(balance, price)
+        checkout = create_checkout_session(
+            google_sub=user["sub"],
+            email=user.get("email", ""),
+        )
+        return None, {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "error": {
+                "code": -32001,
+                "message": (
+                    f"Insufficient credits: balance ${exc.balance}, need ${exc.required}. "
+                    "Buy a $10 credit pack to continue."
+                ),
+                "data": {
+                    "balance_usd": str(exc.balance.normalize()),
+                    "required_usd": str(exc.required.normalize()),
+                    "checkout_url": checkout["checkout_url"],
+                },
+            },
+        }
+
+    return {"user": user, "price": price, "tool": tool_name}, None
+
+
+def _finalize_billing(billing_ctx: dict, result) -> None:
+    """Debit credits only after a successful tool execution."""
+    from human_billing.credits import debit_balance
+
+    if _is_tool_failure(result):
+        return
+    debit_balance(
+        billing_ctx["user"]["sub"],
+        billing_ctx["price"],
+        tool=billing_ctx["tool"],
+    )
+
+
+async def _execute_tool(tool_name: str, args: dict, request: Request | None = None):
     """Execute a tool call and return the result."""
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
     try:
+        if tool_name == "buy_credits":
+            from human_billing.router import authenticate_mcp_request
+            from human_billing.config import credits_enabled
+            from human_billing.stripe_billing import create_checkout_session
+            if not credits_enabled():
+                return {"error": "Credits billing is not configured"}
+            user = authenticate_mcp_request(request) if request else None
+            if not user:
+                return {"error": "Sign in with Google OAuth first (Connect in ChatGPT)"}
+            session = create_checkout_session(google_sub=user["sub"], email=user.get("email", ""))
+            return {
+                "checkout_url": session["checkout_url"],
+                "pack_usd": 10,
+                "message": "Open this URL to buy $10 in prepaid credits.",
+            }
+
+        if tool_name == "credit_balance":
+            from human_billing.router import authenticate_mcp_request
+            from human_billing.config import credits_enabled
+            from human_billing.credits import get_balance
+            if not credits_enabled():
+                return {"error": "Credits billing is not configured"}
+            user = authenticate_mcp_request(request) if request else None
+            if not user:
+                return {"error": "Sign in with Google OAuth first (Connect in ChatGPT)"}
+            balance = get_balance(user["sub"])
+            return {"balance_usd": str(balance), "email": user.get("email")}
+
         if tool_name == "crypto_prices":
             from crypto_data import get_multi_price
             symbols = args.get("symbols", "BTC,ETH,SOL,XRP")
@@ -709,6 +917,13 @@ async def _execute_tool(tool_name: str, args: dict):
             from web_data import get_url_metadata
             url = args.get("url", "")
             return get_url_metadata(url)
+
+        elif tool_name == "web_search":
+            from search_data import web_search
+            q = args.get("q", "")
+            if not q:
+                return {"error": "Missing required argument: q"}
+            return web_search(q, num_results=min(int(args.get("num_results", 5)), 10))
 
         elif tool_name == "resolve_dispute":
             from engine.policy_engine import evaluate_dispute
@@ -815,6 +1030,21 @@ async def _execute_tool(tool_name: str, args: dict):
         elif tool_name == "liquidation_map":
             from synthesis_data import liquidation_map
             return liquidation_map(args.get("symbols", "BTC,ETH,LINK,AAVE,UNI"))
+        elif tool_name == "chat":
+            from inference_gateway import inference
+            return inference(
+                model=args.get("model", "auto"),
+                messages=args.get("messages", []),
+                temperature=args.get("temperature", 0.7),
+                max_tokens=args.get("max_tokens", 1000),
+                profile=args.get("profile", "auto"),
+            )
+        elif tool_name == "generate_image":
+            from media_gateway import generate_image
+            return generate_image(prompt=args.get("prompt", ""), size=args.get("size", "1024x1024"))
+        elif tool_name == "text_to_speech":
+            from media_gateway import text_to_speech
+            return text_to_speech(text=args.get("text", ""), voice=args.get("voice", "alloy"))
 
         else:
             return {"error": f"Unknown tool: {tool_name}"}
@@ -826,12 +1056,12 @@ async def _execute_tool(tool_name: str, args: dict):
 @router.get("/mcp/tools")
 async def mcp_tools_summary():
     """Human-readable summary of MCP tools for discovery."""
-    return SERVER_CARD
+    return build_server_card()
 
 @router.get("/.well-known/mcp/server-card.json")
 async def mcp_server_card():
-    """Static MCP server card for registry discovery (Smithery, mcp-marketplace.io)."""
-    return SERVER_CARD
+    """MCP server card for registry discovery (Smithery, ChatGPT, mcp-marketplace.io)."""
+    return build_server_card()
 
 @router.get("/.well-known/mcp")
 async def mcp_well_known():
@@ -851,8 +1081,8 @@ async def mcp_well_known():
                     "capabilities": {"tools": True, "resources": False, "prompts": False}
                 }
             },
-            "authentication": {"type": "none", "note": "Free tools require no auth. Paid tools use x402 (HTTP 402) payment."},
-            "pricing": {"protocol": "x402", "currency": "USDC", "chain": "base"},
+            "authentication": _mcp_auth_metadata(),
+            "pricing": _mcp_pricing_metadata(),
             "repository": "https://github.com/vbkotecha/agentservices-api",
             "tools_count": len(MCP_TOOLS),
             "links": {

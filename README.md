@@ -1,8 +1,14 @@
 # AgentServices
 
-> 50-endpoint crypto, market intelligence, and AI inference API for AI agents — with x402 micropayments on Base
+> The paid API layer for AI agents — data, intelligence, inference, and media via x402 micropayments
+>
+> **Canonical project:** https://github.com/vbkotecha/agentservices-api
+> **Official site:** https://agentservices.to
+> **License:** Apache-2.0
+>
+> AgentServices is an independent project. It is not affiliated with, endorsed by, or a replacement for any other x402 market-data provider.
 
-[![Version](https://img.shields.io/badge/version-5.3.0-brightgreen)](https://github.com/vbkotecha/agentservices-api)
+[![Version](https://img.shields.io/badge/version-6.0.0-brightgreen)](https://github.com/vbkotecha/agentservices-api)
 [![Network](https://img.shields.io/badge/network-Base%20Mainnet-blue)](https://base.org)
 [![Payment](https://img.shields.io/badge/payment-x402%20%2F%20USDC-purple)](https://x402.org)
 [![MCP](https://img.shields.io/badge/MCP-compatible-orange)](https://modelcontextprotocol.io)
@@ -14,7 +20,53 @@
 
 AgentServices is the monetized API layer for AI agents. No API keys, no subscriptions — agents pay per-request with USDC on Base using the [x402 payment protocol](https://x402.org).
 
-**50 endpoints** across crypto data, market intelligence, DeFi analytics, on-chain analytics, AI inference, portfolio intelligence, and dispute resolution. 12 are free. 38 are paid via x402 (from $0.002 to $0.25 per call).
+**60+ endpoints** across crypto data, market intelligence, DeFi analytics, on-chain analytics, **400+ LLM models**, image generation, text-to-speech, portfolio intelligence, and dispute resolution. 12 are free. 48+ are paid via x402 (from $0.002 to $0.25 per call).
+
+### What's new in v6.0
+
+- **400+ LLM models** via OpenAI-compatible `/v1/chat/completions` — GPT, Claude, Gemini, DeepSeek, Grok, Llama, and more
+- **Smart router** — use `model: "auto"` and the gateway classifies your task and picks the cheapest model that handles it
+- **Image generation** — `/v1/images/generations` via gpt-image-2 ($0.05)
+- **Text-to-speech** — `/v1/audio/speech` with natural voices ($0.05)
+- **3 new MCP tools** — `chat`, `generate_image`, `text_to_speech`
+
+## Buyer path: discover → try → pay → retain
+
+Use the [buyer quickstart](docs/buyer-quickstart.md) for the complete path. The exact next action is to run the no-credential discovery check:
+
+```bash
+python3 examples/mcp_discovery_buyer_proof.py
+```
+
+Then follow the same buyer journey:
+
+1. **Discover:** confirm the hosted MCP server and free tool catalog with the [MCP discovery proof](examples/mcp_discovery_buyer_proof.py).
+2. **Try free:** retrieve a real price result with the [free SDK proof](examples/sdk_free_price_buyer_proof.js).
+3. **Inspect the paid challenge:** decode the live 402 terms with the [paid SDK proof](examples/sdk_paid_indicator_buyer_proof.js). It never signs or settles payment.
+4. **Buy an outcome:** pay the returned x402 terms, retry the same request, and retain the returned paid result. See the [token-risk](docs/token-risk-outcome-contract.md), [market-pulse](docs/market-pulse-outcome-contract.md), and [research-brief](docs/research-brief-outcome-contract.md) contracts for result limits and provenance.
+5. **Retain evidence:** run the existing [receipt builder](examples/build_x402_receipt.py) with the original challenge, paid response, and your wallet authorization or transaction reference.
+
+The four proofs have different limits: discovery and free SDK verify no-spend access; the paid SDK proof verifies challenge shape only; the receipt builder hashes buyer-held evidence and does not verify settlement. None of them claims adoption, settlement, or revenue.
+
+For activation measurement definitions, see [Activation Metrics](docs/activation-metrics.md). To probe the live funnel, run `python3 examples/check_activation_funnel.py`.
+
+## Buyer path: discover → try → pay → retain
+
+Use the [buyer quickstart](docs/buyer-quickstart.md) for the complete path. The exact next action is to run the no-credential discovery check:
+
+```bash
+python3 examples/mcp_discovery_buyer_proof.py
+```
+
+Then follow the same buyer journey:
+
+1. **Discover:** confirm the hosted MCP server and free tool catalog with the [MCP discovery proof](examples/mcp_discovery_buyer_proof.py).
+2. **Try free:** retrieve a real price result with the [free SDK proof](examples/sdk_free_price_buyer_proof.js).
+3. **Inspect the paid challenge:** decode the live 402 terms with the [paid SDK proof](examples/sdk_paid_indicator_buyer_proof.js). It never signs or settles payment.
+4. **Buy an outcome:** pay the returned x402 terms, retry the same request, and retain the returned paid result. See the [token-risk](docs/token-risk-outcome-contract.md), [market-pulse](docs/market-pulse-outcome-contract.md), and [research-brief](docs/research-brief-outcome-contract.md) contracts for result limits and provenance.
+5. **Retain evidence:** run the existing [receipt builder](examples/build_x402_receipt.py) with the original challenge, paid response, and your wallet authorization or transaction reference.
+
+The four proofs have different limits: discovery and free SDK verify no-spend access; the paid SDK proof verifies challenge shape only; the receipt builder hashes buyer-held evidence and does not verify settlement. None of them claims adoption, settlement, or revenue.
 
 ## Endpoints
 
@@ -247,6 +299,51 @@ AgentServices includes an AI-powered dispute resolution system with 7 policy tem
 | `bug-bounty` | Bug bounty validity disputes |
 | `scope-dispute` | Project scope creep disputes |
 | `physical-commerce` | Physical goods transaction disputes |
+
+## Human billing door (ChatGPT / Claude)
+
+Wallet agents continue to pay via **x402 on REST** — unchanged. Humans connecting through ChatGPT Developer Mode or Claude custom connectors can use **Google OAuth + Stripe prepaid credits** on MCP.
+
+| Rail | Who | How |
+|------|-----|-----|
+| x402 | Wallet agents | Unauthenticated REST → HTTP 402 → USDC on Base |
+| Credits | Logged-in humans | Google OAuth on MCP → deduct same USD price from prepaid balance |
+
+**MCP URL for ChatGPT:** `https://agentservices.to/mcp`
+
+### Environment variables
+
+Copy [`.env.example`](.env.example). Required to enable the human door:
+
+| Variable | Purpose |
+|----------|---------|
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `OAUTH_JWT_SECRET` | Signs MCP bearer tokens (or use `SESSION_SECRET`) |
+| `STRIPE_SECRET_KEY` | Stripe API secret key |
+| `STRIPE_WEBHOOK_SECRET` | Verifies `checkout.session.completed` webhooks |
+| `STRIPE_PRICE_CREDITS_10` | Optional Stripe Price ID for $10 pack (otherwise hardcoded) |
+| `PUBLIC_BASE_URL` | Canonical host, e.g. `https://agentservices.to` |
+
+Prepaid credit balances are stored in **Stripe Customer Balance** (one Stripe Customer per Google `sub`). No Redis, Postgres, or other database is required.
+
+Without Google/Stripe vars the API boots in **x402-only mode**.
+
+### Google Cloud Console redirect URIs
+
+Add both hosts:
+
+- `https://agentservices.to/oauth/google/callback`
+- `https://api.agentservices.to/oauth/google/callback`
+
+### Stripe webhook
+
+Point Stripe to:
+
+- `https://agentservices.to/billing/webhook`
+- `https://api.agentservices.to/billing/webhook`
+
+Event: `checkout.session.completed`
 
 ## Discovery & Listings
 
