@@ -1834,6 +1834,7 @@ async def mcp_well_known():
 
 
 @app.get("/server.json", include_in_schema=False)
+@app.get("/.well-known/server.json", include_in_schema=False)
 async def server_json():
     """MCP Registry manifest for GEO/discovery crawlers."""
     path = Path(__file__).parent.parent / "server.json"
@@ -1963,6 +1964,7 @@ async def sitemap_xml():
         "https://agentservices.to/.well-known/schema.json",
         "https://agentservices.to/feed.json",
         "https://agentservices.to/server.json",
+        "https://agentservices.to/.well-known/server.json",
         "https://agentservices.to/mcp.json",
         "https://agentservices.to/agents.txt",
         "https://agentservices.to/.well-known/agents.txt",

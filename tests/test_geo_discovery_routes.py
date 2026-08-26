@@ -76,6 +76,19 @@ def test_server_json_serves_registry_manifest():
     assert data["remotes"][0]["url"] == "https://agentservices.to/mcp"
 
 
+def test_well_known_server_json_matches_server_json():
+    canonical = client.get("/server.json")
+    well_known = client.get("/.well-known/server.json")
+
+    assert canonical.status_code == 200
+    assert well_known.status_code == 200
+    assert canonical.headers["content-type"].startswith("application/json")
+    assert well_known.headers["content-type"].startswith("application/json")
+    assert canonical.json() == well_known.json()
+    assert canonical.json()["name"] == "to.agentservices/agentservices"
+    assert canonical.json()["remotes"][0]["url"] == "https://agentservices.to/mcp"
+
+
 def test_well_known_openapi_json_matches_openapi_json():
     canonical = client.get("/openapi.json")
     well_known = client.get("/.well-known/openapi.json")

@@ -18,6 +18,7 @@ REQUIRED_DISCOVERY_LOCS = [
     "https://agentservices.to/schema.json",
     "https://agentservices.to/.well-known/schema.json",
     "https://agentservices.to/server.json",
+    "https://agentservices.to/.well-known/server.json",
     "https://agentservices.to/mcp.json",
     "https://agentservices.to/agents.txt",
     "https://agentservices.to/.well-known/agents.txt",
