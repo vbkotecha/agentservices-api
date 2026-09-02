@@ -129,7 +129,13 @@ _BAZAAR_ENDPOINT_INFO = {
     "/v1/indicators": {"method": "GET", "route": "/v1/indicators/:symbol", "path_params": {"symbol": "BTC"}, "query": {}, "body": None,
         "output_example": {"symbol": "BTC", "rsi": 45.2, "bollinger_bands": {"upper": 68500, "middle": 67000, "lower": 65500}, "atr": 1200}},
     "/v1/yields": {"method": "GET", "route": "/v1/yields", "path_params": {}, "query": {"chain": "ethereum"}, "body": None,
-        "output_example": [{"protocol": "Aave V3", "asset": "USDC", "apy": 4.52, "tvl": 1200000000}]},
+        "output_example": {
+            "top_pools": [
+                {"project": "aave-v3", "chain": "Ethereum", "symbol": "USDC", "tvl_usd": 1200000000, "apy": 4.52},
+            ],
+            "count": 1,
+            "timestamp": 1700000000,
+        }},
     "/v1/metadata": {"method": "GET", "route": "/v1/metadata", "path_params": {}, "query": {"url": "https://example.com"}, "body": None,
         "output_example": {"title": "Example", "description": "Sample metadata", "og_image": "https://example.com/img.png"}},
     "/v1/search": {"method": "GET", "route": "/v1/search", "path_params": {}, "query": {"q": "bitcoin price"}, "body": None,
@@ -1119,21 +1125,25 @@ async def crypto_indicators(symbol: str):
                      "application/json": {
                          "schema": {
                              "type": "object",
+                             "required": ["top_pools", "count", "timestamp"],
                              "properties": {
-                                 "pools": {
+                                 "top_pools": {
                                      "type": "array",
                                      "items": {
                                          "type": "object",
+                                         "required": ["project", "chain", "symbol", "tvl_usd", "apy"],
                                          "properties": {
-                                             "protocol": {"type": "string"},
-                                             "pool": {"type": "string"},
-                                             "apy": {"type": "number"},
+                                             "project": {"type": ["string", "null"]},
+                                             "chain": {"type": ["string", "null"]},
+                                             "symbol": {"type": ["string", "null"]},
                                              "tvl_usd": {"type": "number"},
-                                             "chain": {"type": "string"},
-                                         }
-                                     }
-                                 }
-                             }
+                                             "apy": {"type": "number"},
+                                         },
+                                     },
+                                 },
+                                 "count": {"type": "integer", "minimum": 0},
+                                 "timestamp": {"type": "integer"},
+                             },
                          }
                      }
                  },
