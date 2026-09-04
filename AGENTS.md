@@ -44,13 +44,15 @@ Base: `/v1/trade/hyperliquid`
 
 ## Agent operating rules
 
-Cloud agents own the full ship loop end-to-end. **Prefer direct ship to `main`.** Never leave a PR for Vivek to review or merge.
+Cloud agents own the full ship loop end-to-end.
+
+**Prefer committing and pushing straight to `main`.** Internal branches are OK only when the agent auto-merges to `main` before any user-facing update is considered done. **Never surface PR links to Vivek.** **Never leave an open PR waiting on him.**
 
 ### Ship workflow
 
-1. **Implement** on a short-lived branch or directly on `main` when scope is small.
+1. **Implement** — commit directly on `main`, or use a short-lived internal branch.
 2. **Test** — run relevant pytest / build; add tests for new trade paths and policy behavior.
-3. **Merge immediately** — squash-merge the branch to `main` yourself, or push to `main` directly if the diff is clean. Do this before any user-facing update is considered done.
+3. **Land on `main`** — push to `main` directly, or squash-merge the branch yourself in the same session. No handoff.
 4. **Deploy** — production auto-deploys on `main` push (Vercel, Yappa Ventures / `agentservices-api`).
 5. **E2E smoke** after deploy:
    - `GET https://api.agentservices.to/health` — `deploy.commit` matches merge SHA
@@ -59,11 +61,10 @@ Cloud agents own the full ship loop end-to-end. **Prefer direct ship to `main`.*
 
 ### PRs (internal only)
 
-PRs may be created for CI or audit trail, but they are **agent-owned**:
+PRs may exist for CI or audit trail, but they are **agent-owned**:
 
-- The agent must squash-merge (or merge) to `main` in the same session — never hand off an open PR.
-- **Never surface PR links to Vivek** in reports, summaries, or follow-ups.
-- If a PR is open when work finishes, merge it before ending the turn.
+- Auto-merge to `main` before ending the turn — never leave one open for Vivek.
+- Do not mention PR links in reports, summaries, or follow-ups.
 
 ### When to ping Vivek
 
@@ -73,7 +74,7 @@ Only for **human gates** that agents cannot satisfy:
 - DNS, domain, or Vercel project ownership changes
 - Secrets that are not in the environment (new API keys, OAuth client setup)
 
-Never ask Vivek to review PRs, diff code, click merge, or approve deploys.
+Never ask Vivek to review code, click merge, or approve deploys.
 
 ## Production
 
