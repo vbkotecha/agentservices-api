@@ -38,6 +38,19 @@ Base: `/v1/trade/hyperliquid`
 - **No venue key custody** — agents sign locally (`approveAgent` + local agent wallet). AgentServices never collects venue API keys or user private keys.
 - **Door + forward** — policy check then forward signed payload. Not a smarter router; not a better fill.
 
+### Dual trade door — execution vs monetization
+
+Two doors, one product. Do not collapse them.
+
+| Door | What | Monetization |
+|------|------|--------------|
+| **Execution** | `/v1/trade/{venue}/...` (HL today), later `/v1/trade/execute` | **Always free of x402 paywall.** Policy leash only. |
+| **Data / discovery** | prices, indicators, search, synthesis, MCP paid tools | **x402** per-request SKUs (unchanged). |
+
+**Locked:** venue execution paths (`/v1/trade/hyperliquid/order`, cancel, policy, paper, eval) must never return HTTP 402 or require USDC to pass policy and forward.
+
+**Future multi-venue / `/v1/trade/execute`:** monetize via a small take on routed notional (~5 bps), embedded in the route — **not** by gating the HL door or blocking execution behind x402. Venue doors stay free; the router earns on flow, not on access.
+
 ### Competitive context
 
 **HyprEarn** is a direct agentic multi-DEX rival. AgentServices trade doors are venue policy leashes, not a HyprEarn clone. Do not conflate the two products in docs or positioning.
