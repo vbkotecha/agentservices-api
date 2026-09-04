@@ -2,19 +2,8 @@
   "meta": {
     "title": "Yappa Ops",
     "updatedAt": "2026-09-04T02:42:00Z",
-    "updatedBy": "Main Bot",
-    "mode": "WAR TIME"
+    "updatedBy": "Main Bot"
   },
-  "rivals": [
-    {
-      "id": "hyprearn",
-      "name": "HyprEarn",
-      "status": "tracked",
-      "threat": "high",
-      "notes": "HL yield/trade agent — direct overlap on Hyperliquid execution lane",
-      "url": "https://hyprearn.com"
-    }
-  ],
   "health": {
     "status": "ok",
     "httpCode": 200,
@@ -26,12 +15,11 @@
     {
       "id": "main-bot",
       "name": "Main Bot",
-      "codename": "WAR TIME",
+      "codename": "CORE",
       "status": "active",
-      "headline": "Shipping /v1/trade/hyperliquid — beat HyprEarn",
+      "headline": "Shipping /v1/trade/hyperliquid",
       "details": [
         "/v1/trade/execute — next",
-        "Rival: HyprEarn tracked",
         "Fidelity / Schwab — roadmap"
       ],
       "priority": "critical"
@@ -53,11 +41,10 @@
       "name": "Radar",
       "codename": "RADAR",
       "status": "watch",
-      "headline": "No paid trade SKU yet — HyprEarn moving",
+      "headline": "Monitoring conversion funnel",
       "details": [
         "24h volume ~$54k",
-        "HyprEarn: tracked rival",
-        "Monitoring conversion funnel"
+        "Paid trade SKU TBD"
       ],
       "priority": "normal"
     },
@@ -80,50 +67,71 @@
         "id": "bl-1",
         "title": "/v1/trade/execute endpoint",
         "squad": "main-bot",
+        "ownerId": "main-bot",
         "tags": ["api", "trading"],
-        "priority": "high"
+        "priority": "high",
+        "description": "Order execution endpoint for Hyperliquid — follow-on to quote endpoint",
+        "updatedAt": "2026-09-03T16:00:00Z"
       },
       {
         "id": "bl-2",
         "title": "Fidelity integration",
         "squad": "main-bot",
+        "ownerId": "main-bot",
         "tags": ["tradfi", "roadmap"],
-        "priority": "low"
+        "priority": "low",
+        "description": "Brokerage API integration for TradFi trading lane",
+        "updatedAt": "2026-09-01T10:00:00Z"
       },
       {
         "id": "bl-3",
         "title": "Schwab integration",
         "squad": "main-bot",
+        "ownerId": "main-bot",
         "tags": ["tradfi", "roadmap"],
-        "priority": "low"
+        "priority": "low",
+        "description": "Charles Schwab API for retail brokerage access",
+        "updatedAt": "2026-09-01T10:00:00Z"
       },
       {
         "id": "bl-4",
         "title": "IndexNow schema path cleanup",
         "squad": "distribution",
+        "ownerId": "distribution",
         "tags": ["seo", "schema"],
-        "priority": "normal"
+        "priority": "normal",
+        "description": "Fix leftover schema.org paths flagged after IndexNow rollout",
+        "updatedAt": "2026-09-02T14:00:00Z"
       },
       {
         "id": "bl-5",
         "title": "Paid trade SKU definition",
         "squad": "radar",
+        "ownerId": "radar",
         "tags": ["pricing", "product"],
-        "priority": "high"
+        "priority": "high",
+        "description": "Define x402 pricing tier for trade execution endpoints",
+        "updatedAt": "2026-09-03T20:00:00Z"
       },
       {
         "id": "bl-6",
         "title": "NLnet EU co-applicant outreach",
         "squad": "money-maker",
+        "ownerId": "money-maker",
         "tags": ["grant", "eu"],
-        "priority": "high"
+        "priority": "high",
+        "description": "Find and onboard EU-based co-applicant for NLnet grant",
+        "updatedAt": "2026-09-03T10:00:00Z"
       },
       {
         "id": "bl-7",
-        "title": "HyprEarn competitive intel brief",
+        "title": "Competitive intel brief",
         "squad": "radar",
-        "tags": ["rival", "hyprearn", "war-time"],
-        "priority": "high"
+        "ownerId": "radar",
+        "tags": ["rival", "intel"],
+        "priority": "high",
+        "description": "Document HL yield/trade agent landscape and positioning gaps",
+        "updatedAt": "2026-09-04T01:00:00Z"
       }
     ],
     "inFlight": [
@@ -131,24 +139,33 @@
         "id": "if-1",
         "title": "Hyperliquid trade PR",
         "squad": "main-bot",
+        "ownerId": "main-bot",
         "tags": ["api", "hl", "pr"],
         "priority": "critical",
-        "link": "https://github.com/yappa-ventures/agentservices/pull/new/cursor/hyperliquid-execution-door-48ee"
+        "description": "PR for /v1/trade/hyperliquid — quote + execution door",
+        "link": "https://github.com/yappa-ventures/agentservices/pull/new/cursor/hyperliquid-execution-door-48ee",
+        "updatedAt": "2026-09-04T00:30:00Z"
       },
       {
         "id": "if-2",
         "title": "Ops dashboard ship",
         "squad": "main-bot",
-        "tags": ["infra", "dashboard", "war-time"],
-        "priority": "high"
+        "ownerId": "main-bot",
+        "tags": ["infra", "dashboard"],
+        "priority": "high",
+        "description": "Founder ops Kanban board — light theme, board.json data source",
+        "updatedAt": "2026-09-04T02:30:00Z"
       },
       {
         "id": "if-3",
         "title": "McpMux #293",
         "squad": "distribution",
+        "ownerId": "distribution",
         "tags": ["mcp", "mux"],
         "priority": "normal",
-        "link": "https://github.com/yappa-ventures/mcpmux/issues/293"
+        "description": "Mux routing cleanup — assigned issue",
+        "link": "https://github.com/yappa-ventures/mcpmux/issues/293",
+        "updatedAt": "2026-09-03T14:20:00Z"
       }
     ],
     "done": [
@@ -156,36 +173,38 @@
         "id": "dn-1",
         "title": "/v1/trade/hyperliquid endpoint",
         "squad": "main-bot",
+        "ownerId": "main-bot",
         "tags": ["api", "hl"],
         "priority": "critical",
-        "completedAt": "2026-09-03T18:00:00Z"
+        "description": "Quote endpoint for Hyperliquid perpetuals trading",
+        "completedAt": "2026-09-03T18:00:00Z",
+        "updatedAt": "2026-09-03T18:00:00Z"
       },
       {
         "id": "dn-2",
         "title": "agent402.tools launch",
         "squad": "distribution",
+        "ownerId": "distribution",
         "tags": ["dist", "launch"],
         "priority": "high",
-        "completedAt": "2026-09-02T12:00:00Z"
+        "description": "Distribution landing page for x402 agent tooling",
+        "completedAt": "2026-09-02T12:00:00Z",
+        "updatedAt": "2026-09-02T12:00:00Z"
       },
       {
         "id": "dn-3",
         "title": "Prod health v6.0.0 stable",
         "squad": "main-bot",
+        "ownerId": "main-bot",
         "tags": ["ops", "release"],
         "priority": "normal",
-        "completedAt": "2026-09-01T09:00:00Z"
+        "description": "Production release with all health checks passing",
+        "completedAt": "2026-09-01T09:00:00Z",
+        "updatedAt": "2026-09-01T09:00:00Z"
       }
     ]
   },
   "activity": [
-    {
-      "id": "act-0",
-      "timestamp": "2026-09-04T02:42:00Z",
-      "squad": "radar",
-      "type": "metric",
-      "message": "WAR TIME — HyprEarn added as tracked rival on HL trade lane"
-    },
     {
       "id": "act-1",
       "timestamp": "2026-09-04T02:28:00Z",
@@ -198,7 +217,7 @@
       "timestamp": "2026-09-04T01:45:00Z",
       "squad": "main-bot",
       "type": "ship",
-      "message": "Started ops dashboard build — Mission Control v1"
+      "message": "Started ops dashboard redesign — Kanban v2"
     },
     {
       "id": "act-3",

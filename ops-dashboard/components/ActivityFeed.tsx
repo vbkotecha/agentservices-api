@@ -1,26 +1,26 @@
 import type { ActivityItem, ActivityType, SquadId } from "@/lib/board";
-import { SQUAD_COLORS, SQUAD_LABELS } from "@/lib/board";
+import { SQUAD_DOT, SQUAD_LABELS } from "@/lib/board";
 
-const TYPE_ICONS: Record<ActivityType, string> = {
-  health: "◉",
-  ship: "▲",
-  pr: "⎇",
-  metric: "◎",
-  issue: "#",
-  grant: "$",
-  seo: "◇",
-  release: "★",
+const TYPE_LABELS: Record<ActivityType, string> = {
+  health: "Health",
+  ship: "Ship",
+  pr: "PR",
+  metric: "Metric",
+  issue: "Issue",
+  grant: "Grant",
+  seo: "SEO",
+  release: "Release",
 };
 
 const TYPE_COLORS: Record<ActivityType, string> = {
-  health: "text-ops-green",
-  ship: "text-ops-accent",
-  pr: "text-ops-cyan",
-  metric: "text-ops-amber",
-  issue: "text-ops-muted",
-  grant: "text-ops-green",
-  seo: "text-ops-cyan",
-  release: "text-ops-accent",
+  health: "bg-ops-green-light text-ops-green",
+  ship: "bg-ops-accent-light text-ops-accent",
+  pr: "bg-ops-cyan-light text-ops-cyan",
+  metric: "bg-ops-amber-light text-ops-amber",
+  issue: "bg-ops-border-subtle text-ops-muted",
+  grant: "bg-ops-green-light text-ops-green",
+  seo: "bg-ops-cyan-light text-ops-cyan",
+  release: "bg-ops-accent-light text-ops-accent",
 };
 
 function formatRelative(iso: string) {
@@ -33,25 +33,26 @@ function formatRelative(iso: string) {
 }
 
 function ActivityRow({ item }: { item: ActivityItem }) {
-  const squadColor = SQUAD_COLORS[item.squad as SquadId];
   const squadLabel = SQUAD_LABELS[item.squad as SquadId];
+  const dotColor = SQUAD_DOT[item.squad as SquadId];
   const typeColor = TYPE_COLORS[item.type];
-  const icon = TYPE_ICONS[item.type];
+  const typeLabel = TYPE_LABELS[item.type];
 
   return (
-    <div className="group flex gap-3 border-b border-ops-border/50 px-1 py-3 last:border-0 hover:bg-ops-elevated/30">
-      <span
-        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-ops-elevated font-mono text-xs ${typeColor}`}
-      >
-        {icon}
-      </span>
+    <div className="flex gap-3 py-3 border-b border-ops-border-subtle last:border-0">
       <div className="min-w-0 flex-1">
-        <p className="text-sm leading-snug text-ops-text">{item.message}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <span className={`font-mono text-[10px] ${squadColor}`}>
+        <p className="text-[13px] leading-snug text-ops-text">{item.message}</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${typeColor}`}
+          >
+            {typeLabel}
+          </span>
+          <span className="inline-flex items-center gap-1 text-[10px] text-ops-muted">
+            <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
             {squadLabel}
           </span>
-          <span className="font-mono text-[10px] text-ops-muted">
+          <span className="text-[10px] text-ops-muted">
             {formatRelative(item.timestamp)}
           </span>
         </div>
@@ -62,15 +63,20 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 
 export function ActivityFeed({ items }: { items: ActivityItem[] }) {
   return (
-    <section>
-      <h2 className="mb-3 font-mono text-xs uppercase tracking-widest text-ops-muted">
-        Activity
-      </h2>
-      <div className="rounded-xl border border-ops-border bg-ops-surface/50">
-        <div className="max-h-[480px] overflow-y-auto px-3">
-          {items.map((item) => (
-            <ActivityRow key={item.id} item={item} />
-          ))}
+    <section className="flex flex-col">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-ops-text">Activity</h2>
+        <span className="text-xs text-ops-muted">{items.length} events</span>
+      </div>
+      <div className="flex-1 rounded-xl border border-ops-border bg-ops-surface shadow-card-sm">
+        <div className="max-h-[520px] overflow-y-auto px-3 lg:max-h-none">
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-xs text-ops-muted">No recent activity</p>
+            </div>
+          ) : (
+            items.map((item) => <ActivityRow key={item.id} item={item} />)
+          )}
         </div>
       </div>
     </section>
