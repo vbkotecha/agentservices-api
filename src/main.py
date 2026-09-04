@@ -2077,6 +2077,7 @@ async def sitemap_xml():
         "https://agentservices.to/llms.txt",
         "https://agentservices.to/.well-known/llms.txt",
         "https://agentservices.to/llms-full.txt",
+        "https://agentservices.to/.well-known/llms-full.txt",
         "https://agentservices.to/openapi.json",
         "https://agentservices.to/schema.json",
         "https://agentservices.to/.well-known/openapi.json",
@@ -2106,6 +2107,7 @@ async def sitemap_xml():
 
 
 @app.get("/llms-full.txt", include_in_schema=False)
+@app.get("/.well-known/llms-full.txt", include_in_schema=False)
 async def llms_full_txt():
     """Full site content in clean markdown for LLM context windows."""
     from starlette.responses import PlainTextResponse

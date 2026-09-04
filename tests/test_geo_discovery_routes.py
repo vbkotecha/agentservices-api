@@ -55,6 +55,18 @@ def test_well_known_llms_txt_matches_llms_txt():
     assert canonical.text.startswith("# AgentServices")
 
 
+def test_well_known_llms_full_txt_matches_llms_full_txt():
+    canonical = client.get("/llms-full.txt")
+    well_known = client.get("/.well-known/llms-full.txt")
+
+    assert canonical.status_code == 200
+    assert well_known.status_code == 200
+    assert canonical.headers["content-type"].startswith("text/plain")
+    assert well_known.headers["content-type"].startswith("text/plain")
+    assert canonical.text == well_known.text
+    assert canonical.text.startswith("# AgentServices")
+
+
 def test_well_known_agents_txt_matches_agents_txt():
     canonical = client.get("/agents.txt")
     well_known = client.get("/.well-known/agents.txt")
