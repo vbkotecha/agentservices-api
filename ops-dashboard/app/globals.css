@@ -2,27 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
+  --bg: #f8f9fb;
+  --surface: #ffffff;
+  --surface-hover: #f3f4f6;
+  --border: #e5e7eb;
+  --border-subtle: #f0f1f3;
+  --text: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --accent: #4f46e5;
+  --accent-light: #eef2ff;
+  --accent-hover: #4338ca;
+  --green: #059669;
+  --green-light: #ecfdf5;
+  --amber: #d97706;
+  --amber-light: #fffbeb;
+  --red: #dc2626;
+  --red-light: #fef2f2;
+  --cyan: #0891b2;
+  --cyan-light: #ecfeff;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface-hover: #22252f;
+  --border: #2d3140;
+  --border-subtle: #252830;
+  --text: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --accent: #818cf8;
+  --accent-light: #1e1b4b;
+  --accent-hover: #a5b4fc;
+  --green: #34d399;
+  --green-light: #064e3b;
+  --amber: #fbbf24;
+  --amber-light: #451a03;
+  --red: #f87171;
+  --red-light: #450a0a;
+  --cyan: #22d3ee;
+  --cyan-light: #083344;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.25), 0 1px 2px -1px rgb(0 0 0 / 0.2);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
   color-scheme: dark;
 }
 
 body {
-  font-family: "Inter", system-ui, sans-serif;
-  background: #0a0a0f;
-  color: #e8e8f0;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Subtle grid background */
-.ops-grid-bg {
-  background-image:
-    linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
-}
-
-/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -31,15 +72,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a3a;
+  background: var(--border);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a4a;
-}
-
-@layer utilities {
-  .font-mono {
-    font-family: "JetBrains Mono", ui-monospace, monospace;
-  }
+  background: var(--text-muted);
 }

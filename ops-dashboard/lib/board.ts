@@ -4,6 +4,8 @@ export type Priority = "critical" | "high" | "normal" | "low";
 
 export type SquadStatus = "active" | "watch" | "idle";
 
+export type KanbanColumn = "backlog" | "inFlight" | "done";
+
 export type ActivityType =
   | "health"
   | "ship"
@@ -40,6 +42,9 @@ export interface KanbanCard {
   priority: Priority;
   link?: string;
   completedAt?: string;
+  description?: string;
+  ownerId?: SquadId;
+  updatedAt?: string;
 }
 
 export interface ActivityItem {
@@ -73,18 +78,45 @@ export const SQUAD_LABELS: Record<SquadId, string> = {
   "money-maker": "Money Maker",
 };
 
-export const SQUAD_COLORS: Record<SquadId, string> = {
-  "main-bot": "text-ops-accent",
-  distribution: "text-ops-cyan",
-  radar: "text-ops-amber",
-  "money-maker": "text-ops-green",
+export const SQUAD_INITIALS: Record<SquadId, string> = {
+  "main-bot": "MB",
+  distribution: "DI",
+  radar: "RA",
+  "money-maker": "MM",
 };
 
-export const PRIORITY_STYLES: Record<Priority, string> = {
-  critical: "border-l-ops-red bg-ops-red/5",
-  high: "border-l-ops-amber bg-ops-amber/5",
-  normal: "border-l-ops-accent bg-ops-accent/5",
-  low: "border-l-ops-muted bg-ops-muted/5",
+export const SQUAD_COLORS: Record<SquadId, string> = {
+  "main-bot": "text-ops-accent bg-ops-accent-light",
+  distribution: "text-ops-cyan bg-ops-cyan-light",
+  radar: "text-ops-amber bg-ops-amber-light",
+  "money-maker": "text-ops-green bg-ops-green-light",
+};
+
+export const SQUAD_DOT: Record<SquadId, string> = {
+  "main-bot": "bg-ops-accent",
+  distribution: "bg-ops-cyan",
+  radar: "bg-ops-amber",
+  "money-maker": "bg-ops-green",
+};
+
+export const PRIORITY_LABELS: Record<Priority, string> = {
+  critical: "Critical",
+  high: "High",
+  normal: "Normal",
+  low: "Low",
+};
+
+export const PRIORITY_CHIP: Record<Priority, string> = {
+  critical: "bg-ops-red-light text-ops-red",
+  high: "bg-ops-amber-light text-ops-amber",
+  normal: "bg-ops-accent-light text-ops-accent",
+  low: "bg-ops-border-subtle text-ops-muted",
+};
+
+export const COLUMN_STATUS: Record<KanbanColumn, { label: string; chip: string }> = {
+  backlog: { label: "Backlog", chip: "bg-ops-border-subtle text-ops-secondary" },
+  inFlight: { label: "In Flight", chip: "bg-ops-amber-light text-ops-amber" },
+  done: { label: "Done", chip: "bg-ops-green-light text-ops-green" },
 };
 
 import { readFile } from "fs/promises";

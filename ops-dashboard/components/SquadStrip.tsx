@@ -1,69 +1,60 @@
 import type { Squad, SquadId } from "@/lib/board";
-import { SQUAD_COLORS } from "@/lib/board";
+import { SQUAD_DOT, SQUAD_INITIALS, SQUAD_LABELS } from "@/lib/board";
 
-const STATUS_DOT: Record<string, string> = {
-  active: "bg-ops-green",
-  watch: "bg-ops-amber",
-  idle: "bg-ops-muted",
+const STATUS_LABEL: Record<string, string> = {
+  active: "Active",
+  watch: "Watching",
+  idle: "Idle",
 };
 
-const PRIORITY_RING: Record<string, string> = {
-  critical: "ring-ops-red/50",
-  high: "ring-ops-amber/50",
-  normal: "ring-ops-accent/30",
-  low: "ring-ops-border",
+const STATUS_RING: Record<string, string> = {
+  active: "ring-ops-green",
+  watch: "ring-ops-amber",
+  idle: "ring-ops-border",
 };
 
-function SquadCard({ squad }: { squad: Squad }) {
-  const colorClass = SQUAD_COLORS[squad.id as SquadId];
+function SquadAvatar({ squad }: { squad: Squad }) {
+  const initials = SQUAD_INITIALS[squad.id as SquadId];
+  const dotColor = SQUAD_DOT[squad.id as SquadId];
+  const ringColor = STATUS_RING[squad.status];
 
   return (
     <div
-      className={`group relative flex flex-col gap-2 rounded-xl border border-ops-border bg-ops-surface p-4 ring-1 transition-all hover:border-ops-accent/30 hover:bg-ops-elevated ${PRIORITY_RING[squad.priority]}`}
+      className="group relative flex flex-col items-center gap-1.5"
+      title={`${squad.name}: ${squad.headline}`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span
-            className={`h-2 w-2 rounded-full ${STATUS_DOT[squad.status]}`}
-          />
-          <span className="font-mono text-[10px] uppercase tracking-widest text-ops-muted">
-            {squad.codename}
-          </span>
-        </div>
-        {squad.priority === "critical" && (
-          <span className="rounded bg-ops-red/20 px-1.5 py-0.5 font-mono text-[10px] uppercase text-ops-red">
-            war
-          </span>
-        )}
+      <div
+        className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-ops-surface border border-ops-border ring-2 ${ringColor} shadow-card-sm transition-shadow group-hover:shadow-card`}
+      >
+        <span className="text-xs font-semibold text-ops-secondary">
+          {initials}
+        </span>
+        <span
+          className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-ops-surface ${dotColor}`}
+        />
       </div>
-
-      <h3 className={`text-sm font-semibold ${colorClass}`}>{squad.name}</h3>
-      <p className="text-sm leading-snug text-ops-text">{squad.headline}</p>
-
-      <ul className="mt-1 space-y-0.5">
-        {squad.details.map((detail) => (
-          <li
-            key={detail}
-            className="font-mono text-[11px] text-ops-muted before:mr-1.5 before:text-ops-border before:content-['›']"
-          >
-            {detail}
-          </li>
-        ))}
-      </ul>
+      <div className="text-center">
+        <p className="text-[11px] font-medium text-ops-text leading-tight">
+          {SQUAD_LABELS[squad.id as SquadId]}
+        </p>
+        <p className="text-[10px] text-ops-muted">{STATUS_LABEL[squad.status]}</p>
+      </div>
     </div>
   );
 }
 
 export function SquadStrip({ squads }: { squads: Squad[] }) {
   return (
-    <section>
-      <h2 className="mb-3 font-mono text-xs uppercase tracking-widest text-ops-muted">
-        Squads
-      </h2>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {squads.map((squad) => (
-          <SquadCard key={squad.id} squad={squad} />
-        ))}
+    <section className="rounded-xl border border-ops-border bg-ops-surface px-4 py-3 shadow-card-sm">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-xs font-medium text-ops-muted uppercase tracking-wide">
+          Squads
+        </p>
+        <div className="flex flex-1 items-start justify-end gap-5 overflow-x-auto pb-1 sm:justify-center sm:gap-8">
+          {squads.map((squad) => (
+            <SquadAvatar key={squad.id} squad={squad} />
+          ))}
+        </div>
       </div>
     </section>
   );

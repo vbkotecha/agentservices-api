@@ -15,35 +15,24 @@ export function HealthBadge({ health }: { health: Health }) {
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-lg border px-4 py-2.5 ${
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${
         isOk
-          ? "border-ops-green/30 bg-ops-green/5"
-          : "border-ops-red/30 bg-ops-red/5"
+          ? "border-ops-green/30 bg-ops-green-light text-ops-green"
+          : "border-ops-red/30 bg-ops-red-light text-ops-red"
       }`}
     >
       <span
-        className={`relative flex h-2.5 w-2.5 ${isOk ? "" : "animate-pulse"}`}
-      >
-        <span
-          className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
-            isOk ? "animate-ping bg-ops-green" : "bg-ops-red"
-          }`}
-        />
-        <span
-          className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-            isOk ? "bg-ops-green" : "bg-ops-red"
-          }`}
-        />
+        className={`h-2 w-2 rounded-full ${isOk ? "bg-ops-green" : "bg-ops-red"}`}
+      />
+      <span className="font-medium">
+        {isOk ? "Healthy" : "Degraded"}
       </span>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-        <span className="font-mono text-sm font-medium">
-          {health.httpCode} {health.version}
-        </span>
-        <span className="hidden text-ops-muted sm:inline">·</span>
-        <span className="text-xs text-ops-muted">
-          checked {formatTime(health.checkedAt)}
-        </span>
-      </div>
+      <span className="text-xs opacity-75">
+        {health.httpCode} · {health.version}
+      </span>
+      <span className="hidden text-xs opacity-60 sm:inline">
+        · {formatTime(health.checkedAt)}
+      </span>
     </div>
   );
 }
