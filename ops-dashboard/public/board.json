@@ -1,9 +1,20 @@
 {
   "meta": {
     "title": "Yappa Ops",
-    "updatedAt": "2026-09-04T02:30:00Z",
-    "updatedBy": "Main Bot"
+    "updatedAt": "2026-09-04T02:42:00Z",
+    "updatedBy": "Main Bot",
+    "mode": "WAR TIME"
   },
+  "rivals": [
+    {
+      "id": "hyprearn",
+      "name": "HyprEarn",
+      "status": "tracked",
+      "threat": "high",
+      "notes": "HL yield/trade agent — direct overlap on Hyperliquid execution lane",
+      "url": "https://hyprearn.com"
+    }
+  ],
   "health": {
     "status": "ok",
     "httpCode": 200,
@@ -17,9 +28,10 @@
       "name": "Main Bot",
       "codename": "WAR TIME",
       "status": "active",
-      "headline": "Shipping /v1/trade/hyperliquid",
+      "headline": "Shipping /v1/trade/hyperliquid — beat HyprEarn",
       "details": [
         "/v1/trade/execute — next",
+        "Rival: HyprEarn tracked",
         "Fidelity / Schwab — roadmap"
       ],
       "priority": "critical"
@@ -41,9 +53,10 @@
       "name": "Radar",
       "codename": "RADAR",
       "status": "watch",
-      "headline": "No paid trade SKU yet",
+      "headline": "No paid trade SKU yet — HyprEarn moving",
       "details": [
         "24h volume ~$54k",
+        "HyprEarn: tracked rival",
         "Monitoring conversion funnel"
       ],
       "priority": "normal"
@@ -104,6 +117,13 @@
         "squad": "money-maker",
         "tags": ["grant", "eu"],
         "priority": "high"
+      },
+      {
+        "id": "bl-7",
+        "title": "HyprEarn competitive intel brief",
+        "squad": "radar",
+        "tags": ["rival", "hyprearn", "war-time"],
+        "priority": "high"
       }
     ],
     "inFlight": [
@@ -117,9 +137,9 @@
       },
       {
         "id": "if-2",
-        "title": "Ops dashboard (this)",
+        "title": "Ops dashboard ship",
         "squad": "main-bot",
-        "tags": ["infra", "dashboard"],
+        "tags": ["infra", "dashboard", "war-time"],
         "priority": "high"
       },
       {
@@ -159,6 +179,13 @@
     ]
   },
   "activity": [
+    {
+      "id": "act-0",
+      "timestamp": "2026-09-04T02:42:00Z",
+      "squad": "radar",
+      "type": "metric",
+      "message": "WAR TIME — HyprEarn added as tracked rival on HL trade lane"
+    },
     {
       "id": "act-1",
       "timestamp": "2026-09-04T02:28:00Z",
