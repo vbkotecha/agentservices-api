@@ -84,31 +84,38 @@ The four proofs have different limits: discovery and free SDK verify no-spend ac
 | `GET /v1/geo?ip=1.2.3.4` | IP geolocation lookup |
 | `GET /v1/swap/quote?from=&to=&amount=` | DEX swap quote (0x integration) |
 | `GET /v1/policies` | List dispute resolution policy templates |
-| `GET /v1/hl/bootstrap` | Hyperliquid agent-sign bootstrap (approveAgent flow) |
-| `POST /v1/hl/order` | Forward agent-signed HL perp order (policy-gated) |
-| `POST /v1/hl/cancel` | Forward agent-signed HL cancel |
-| `GET /v1/hl/order/status` | HL order status (read-only) |
-| `PUT /v1/hl/policy` | Set execution leash (max notional, coin allowlist, kill switch) |
-| `POST /v1/hl/paper/order` | Paper/sim order for agent training |
-| `POST /v1/hl/eval/order` | Policy pass/fail eval (training gym) |
+| `GET /v1/trade/hyperliquid/bootstrap` | Hyperliquid agent-sign bootstrap (approveAgent flow) |
+| `POST /v1/trade/hyperliquid/order` | Forward agent-signed HL order (policy-gated) |
+| `POST /v1/trade/hyperliquid/cancel` | Forward agent-signed HL cancel |
+| `GET /v1/trade/hyperliquid/order` | HL order status (query: `user`, `oid`) |
+| `GET /v1/trade/hyperliquid/order/{id}` | HL order status (path param) |
+| `GET/PUT /v1/trade/hyperliquid/policy` | Execution leash (max notional, coin allowlist, kill switch) |
+| `POST /v1/trade/hyperliquid/paper/order` | Paper/sim order for agent training |
+| `POST /v1/trade/hyperliquid/eval/order` | Policy pass/fail eval (training gym) |
 | `GET /health` | API health check |
 
-### Hyperliquid execution (FREE — not x402)
+### Trade API — venue doors (FREE — not x402)
 
-AgentServices is a **door + leash** for Hyperliquid perps, not a smarter router. We do **not** claim better fills than HL direct. Execution is **free at the call** (no x402 on the order path). Optional builder fees are omitted so routing through us is not more expensive than going direct.
+AgentServices is building **venue trade doors** under `/v1/trade/{venue}/…`. Hyperliquid ships first; more venues and a venue-neutral `/v1/trade/execute` router follow.
 
-**We never collect venue API keys.** Agents sign orders locally with an HL-approved agent wallet (`approveAgent` on the main wallet is the one human bootstrap step). AgentServices policy-checks (max notional, BTC/ETH allowlist, kill switch) and forwards the signed payload to Hyperliquid.
+Each door is a **policy leash + forward** — not a smarter router. We do **not** claim better fills than the venue direct. Execution is **free at the call** (no x402 on the order path). Builder fees are omitted so routing through us is not more expensive than going direct.
+
+**We never collect venue API keys.** Agents sign orders locally with an HL-approved agent wallet (`approveAgent` on the main wallet is the one human bootstrap step). AgentServices policy-checks (max notional, coin allowlist, kill switch) and forwards the signed payload.
+
+Request bodies accept `market_type`: `spot`, `perp`, or `future`. Hyperliquid implements **perp** and **spot** today; unsupported types return a machine-readable `market_type_not_supported` error.
 
 | MCP tool | HTTP equivalent |
 |----------|-----------------|
-| `hl_place_order` | `POST /v1/hl/order` |
-| `hl_cancel_order` | `POST /v1/hl/cancel` |
-| `hl_order_status` | `GET /v1/hl/order/status` |
-| `hl_get_policy` / `hl_set_policy` | `GET/PUT /v1/hl/policy` |
-| `hl_paper_order` | `POST /v1/hl/paper/order` |
-| `hl_eval_order` | `POST /v1/hl/eval/order` |
+| `trade_hyperliquid_order` | `POST /v1/trade/hyperliquid/order` |
+| `trade_hyperliquid_cancel` | `POST /v1/trade/hyperliquid/cancel` |
+| `trade_hyperliquid_order_status` | `GET /v1/trade/hyperliquid/order` |
+| `trade_hyperliquid_get_policy` / `trade_hyperliquid_set_policy` | `GET/PUT /v1/trade/hyperliquid/policy` |
+| `trade_hyperliquid_paper_order` | `POST /v1/trade/hyperliquid/paper/order` |
+| `trade_hyperliquid_eval_order` | `POST /v1/trade/hyperliquid/eval/order` |
 
-See `GET /v1/hl/bootstrap` for the approveAgent signing model.
+Legacy `hl_*` MCP tool names remain as aliases. See `GET /v1/trade/hyperliquid/bootstrap` for the approveAgent signing model.
+
+**Roadmap:** `/v1/trade/{venue}` for additional venues; `/v1/trade/execute` for venue-neutral routing later.
 
 ### Paid — Data APIs (x402)
 | Endpoint | Price | Description |

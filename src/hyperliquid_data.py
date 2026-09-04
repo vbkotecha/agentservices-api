@@ -16,11 +16,16 @@ import time
 import hashlib
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import requests
 from fastapi import HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+MarketType = Literal["spot", "perp", "future"]
+VALID_MARKET_TYPES: frozenset[str] = frozenset({"spot", "perp", "future"})
+# Hyperliquid currently implements perp + spot; dated futures are not routed here yet.
+HL_SUPPORTED_MARKET_TYPES: frozenset[str] = frozenset({"perp", "spot"})
 
 HL_API_URL = os.environ.get("HYPERLIQUID_API_URL", "https://api.hyperliquid.xyz").rstrip("/")
 HL_EXCHANGE_URL = f"{HL_API_URL}/exchange"
@@ -94,30 +99,79 @@ class OrderCheckFields(BaseModel):
     price: float | None = None
 
 
+def validate_market_type(market_type: str, venue: str = "hyperliquid") -> str:
+    """Validate market_type enum and venue support. Returns normalized market_type."""
+    normalized = market_type.lower().strip()
+    if normalized not in VALID_MARKET_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_market_type",
+                "market_type": market_type,
+                "allowed": sorted(VALID_MARKET_TYPES),
+            },
+        )
+    if venue == "hyperliquid" and normalized not in HL_SUPPORTED_MARKET_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "market_type_not_supported",
+                "market_type": normalized,
+                "venue": venue,
+                "supported": sorted(HL_SUPPORTED_MARKET_TYPES),
+            },
+        )
+    return normalized
+
+
 class HLForwardRequest(BaseModel):
     principal: str = Field(description="Main wallet the agent trades on behalf of")
+    market_type: MarketType = Field(default="perp", description="Market type: spot, perp, or future")
     signed: SignedHLPayload
     check: OrderCheckFields | None = Field(
         default=None,
         description="Optional explicit fields for policy; otherwise parsed from action",
     )
 
+    @field_validator("market_type", mode="before")
+    @classmethod
+    def _normalize_market_type(cls, v: str) -> str:
+        if isinstance(v, str):
+            return v.lower().strip()
+        return v
+
 
 class HLPolicyEvalRequest(BaseModel):
     principal: str
+    market_type: MarketType = Field(default="perp", description="Market type: spot, perp, or future")
     coin: str
     side: str
     size: float
     price: float
 
+    @field_validator("market_type", mode="before")
+    @classmethod
+    def _normalize_market_type(cls, v: str) -> str:
+        if isinstance(v, str):
+            return v.lower().strip()
+        return v
+
 
 class HLPaperOrderRequest(BaseModel):
     principal: str = "paper-agent"
+    market_type: MarketType = Field(default="perp", description="Market type: spot, perp, or future")
     coin: str = "BTC"
     side: str = "buy"
     size: float = 0.01
     price: float = 50_000.0
     order_type: str = "limit"
+
+    @field_validator("market_type", mode="before")
+    @classmethod
+    def _normalize_market_type(cls, v: str) -> str:
+        if isinstance(v, str):
+            return v.lower().strip()
+        return v
 
 
 def _fetch_meta() -> dict[int, str]:
@@ -253,15 +307,30 @@ def validate_order_policy(principal: str, legs: list[dict]) -> None:
             )
 
 
-def eval_order_against_policy(principal: str, coin: str, side: str, size: float, price: float) -> dict:
+def eval_order_against_policy(
+    principal: str,
+    coin: str,
+    side: str,
+    size: float,
+    price: float,
+    market_type: str = "perp",
+) -> dict:
     """Training gym: pass/fail a candidate order against a principal's policy."""
+    normalized_market = validate_market_type(market_type)
     legs = [{"coin": coin.upper(), "side": side.lower(), "size": size, "price": price, "notional_usd": size * price}]
     try:
         validate_order_policy(principal, legs)
-        return {"pass": True, "principal": principal, "coin": coin.upper(), "notional_usd": size * price}
+        return {
+            "pass": True,
+            "principal": principal,
+            "market_type": normalized_market,
+            "venue": "hyperliquid",
+            "coin": coin.upper(),
+            "notional_usd": size * price,
+        }
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else {"error": str(exc.detail)}
-        return {"pass": False, "principal": principal, "reason": detail}
+        return {"pass": False, "principal": principal, "market_type": normalized_market, "reason": detail}
 
 
 def _build_forward_body(signed: SignedHLPayload) -> dict:
@@ -280,6 +349,7 @@ def _build_forward_body(signed: SignedHLPayload) -> dict:
 
 def forward_signed_action(req: HLForwardRequest) -> dict:
     """Policy-check then forward agent-signed payload to Hyperliquid."""
+    market_type = validate_market_type(req.market_type)
     action = req.signed.action
     action_type = action.get("type")
     if action_type == "order":
@@ -310,14 +380,18 @@ def forward_signed_action(req: HLForwardRequest) -> dict:
     except ValueError:
         raise HTTPException(status_code=502, detail={"error": "invalid_hyperliquid_response", "status": resp.status_code})
 
-    receipt = _build_receipt(req, body, hl_result, legs if action_type == "order" else [])
-    return {"receipt": receipt, "hyperliquid": hl_result}
+    receipt = _build_receipt(req, body, hl_result, legs if action_type == "order" else [], market_type)
+    return {"receipt": receipt, "hyperliquid": hl_result, "market_type": market_type}
 
 
-def _build_receipt(req: HLForwardRequest, body: dict, hl_result: dict, legs: list[dict]) -> dict:
+def _build_receipt(
+    req: HLForwardRequest, body: dict, hl_result: dict, legs: list[dict], market_type: str = "perp"
+) -> dict:
     ts = int(time.time() * 1000)
     receipt: dict[str, Any] = {
         "principal": req.principal,
+        "market_type": market_type,
+        "venue": "hyperliquid",
         "action_type": body["action"].get("type"),
         "timestamp_ms": ts,
         "forwarded_to": HL_EXCHANGE_URL,
@@ -373,6 +447,7 @@ def get_order_status(user: str, oid: int | str) -> dict:
 def place_paper_order(req: HLPaperOrderRequest) -> dict:
     """Simulated order — same shape as live, no HL call."""
     global _paper_counter
+    market_type = validate_market_type(req.market_type)
     policy = get_policy(req.principal) if req.principal != "paper-agent" else HLExecutionPolicy(principal=req.principal)
     if req.principal != "paper-agent":
         legs = [
@@ -392,6 +467,8 @@ def place_paper_order(req: HLPaperOrderRequest) -> dict:
     order = {
         "order_id": oid,
         "principal": req.principal,
+        "market_type": market_type,
+        "venue": "hyperliquid",
         "coin": req.coin.upper(),
         "side": req.side.lower(),
         "size": req.size,
@@ -405,6 +482,8 @@ def place_paper_order(req: HLPaperOrderRequest) -> dict:
     return {
         "receipt": {
             "order_id": oid,
+            "market_type": market_type,
+            "venue": "hyperliquid",
             "coin": order["coin"],
             "side": order["side"],
             "size": order["size"],
@@ -422,6 +501,12 @@ def get_paper_orders(principal: str) -> list[dict]:
 
 def bootstrap_doc() -> dict:
     return {
+        "venue": "hyperliquid",
+        "base_path": "/v1/trade/hyperliquid",
+        "market_types": {
+            "accepted": sorted(VALID_MARKET_TYPES),
+            "supported_now": sorted(HL_SUPPORTED_MARKET_TYPES),
+        },
         "model": "agent_sign_only",
         "venue_api_keys": "never_collected",
         "human_bootstrap": [

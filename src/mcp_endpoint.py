@@ -537,13 +537,14 @@ MCP_TOOLS = [
         "inputSchema": {"type": "object", "properties": {}}
     },
     {
-        "name": "hl_place_order",
-        "description": "Forward agent-signed Hyperliquid perp order after policy check (FREE — not x402). Agent signs locally; no venue API keys.",
-        "title": "Hyperliquid Place Order",
+        "name": "trade_hyperliquid_order",
+        "description": "Forward agent-signed Hyperliquid order after policy check (FREE — not x402). market_type: spot|perp|future. Agent signs locally; no venue API keys.",
+        "title": "Trade Hyperliquid Order",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "principal": {"type": "string", "description": "Main HL wallet address"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
                 "signed": {
                     "type": "object",
                     "description": "Signed HL payload: action, nonce, signature",
@@ -569,22 +570,23 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "hl_cancel_order",
+        "name": "trade_hyperliquid_cancel",
         "description": "Forward agent-signed Hyperliquid cancel after policy check (FREE — not x402)",
-        "title": "Hyperliquid Cancel Order",
+        "title": "Trade Hyperliquid Cancel",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "principal": {"type": "string"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
                 "signed": {"type": "object"}
             },
             "required": ["principal", "signed"]
         }
     },
     {
-        "name": "hl_order_status",
+        "name": "trade_hyperliquid_order_status",
         "description": "Read Hyperliquid order status via info API (FREE)",
-        "title": "Hyperliquid Order Status",
+        "title": "Trade Hyperliquid Order Status",
         "annotations": {"readOnlyHint": True},
         "inputSchema": {
             "type": "object",
@@ -596,9 +598,9 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "hl_get_policy",
+        "name": "trade_hyperliquid_get_policy",
         "description": "Get execution leash policy for a principal (max notional, allowlist, kill switch) (FREE)",
-        "title": "Hyperliquid Get Policy",
+        "title": "Trade Hyperliquid Get Policy",
         "annotations": {"readOnlyHint": True},
         "inputSchema": {
             "type": "object",
@@ -609,9 +611,114 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "hl_set_policy",
+        "name": "trade_hyperliquid_set_policy",
         "description": "Set execution leash policy for a principal (FREE)",
-        "title": "Hyperliquid Set Policy",
+        "title": "Trade Hyperliquid Set Policy",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string"},
+                "max_notional_usd": {"type": "number", "default": 50000},
+                "allowed_coins": {"type": "array", "items": {"type": "string"}, "default": ["BTC", "ETH"]},
+                "enabled": {"type": "boolean", "default": True},
+                "kill_switch": {"type": "boolean", "default": False}
+            },
+            "required": ["principal"]
+        }
+    },
+    {
+        "name": "trade_hyperliquid_paper_order",
+        "description": "Paper/sim order — same shape as live, no HL call (FREE training gym)",
+        "title": "Trade Hyperliquid Paper Order",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string", "default": "paper-agent"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
+                "coin": {"type": "string", "default": "BTC"},
+                "side": {"type": "string", "default": "buy"},
+                "size": {"type": "number", "default": 0.01},
+                "price": {"type": "number", "default": 50000}
+            }
+        }
+    },
+    {
+        "name": "trade_hyperliquid_eval_order",
+        "description": "Pass/fail eval: candidate order vs principal policy (FREE training gym)",
+        "title": "Trade Hyperliquid Policy Eval",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
+                "coin": {"type": "string"},
+                "side": {"type": "string"},
+                "size": {"type": "number"},
+                "price": {"type": "number"}
+            },
+            "required": ["principal", "coin", "side", "size", "price"]
+        }
+    },
+    # Deprecated aliases (PR #64 names) — prefer trade_hyperliquid_*
+    {
+        "name": "hl_place_order",
+        "description": "[alias] Use trade_hyperliquid_order. Forward agent-signed Hyperliquid order (FREE).",
+        "title": "Hyperliquid Place Order (alias)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
+                "signed": {"type": "object"},
+                "check": {"type": "object"}
+            },
+            "required": ["principal", "signed"]
+        }
+    },
+    {
+        "name": "hl_cancel_order",
+        "description": "[alias] Use trade_hyperliquid_cancel.",
+        "title": "Hyperliquid Cancel Order (alias)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
+                "signed": {"type": "object"}
+            },
+            "required": ["principal", "signed"]
+        }
+    },
+    {
+        "name": "hl_order_status",
+        "description": "[alias] Use trade_hyperliquid_order_status.",
+        "title": "Hyperliquid Order Status (alias)",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "user": {"type": "string"},
+                "oid": {"type": "string"}
+            },
+            "required": ["user", "oid"]
+        }
+    },
+    {
+        "name": "hl_get_policy",
+        "description": "[alias] Use trade_hyperliquid_get_policy.",
+        "title": "Hyperliquid Get Policy (alias)",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "properties": {"principal": {"type": "string"}},
+            "required": ["principal"]
+        }
+    },
+    {
+        "name": "hl_set_policy",
+        "description": "[alias] Use trade_hyperliquid_set_policy.",
+        "title": "Hyperliquid Set Policy (alias)",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -626,12 +733,13 @@ MCP_TOOLS = [
     },
     {
         "name": "hl_paper_order",
-        "description": "Paper/sim order — same shape as live, no HL call (FREE training gym)",
-        "title": "Hyperliquid Paper Order",
+        "description": "[alias] Use trade_hyperliquid_paper_order.",
+        "title": "Hyperliquid Paper Order (alias)",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "principal": {"type": "string", "default": "paper-agent"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
                 "coin": {"type": "string", "default": "BTC"},
                 "side": {"type": "string", "default": "buy"},
                 "size": {"type": "number", "default": 0.01},
@@ -641,13 +749,14 @@ MCP_TOOLS = [
     },
     {
         "name": "hl_eval_order",
-        "description": "Pass/fail eval: candidate order vs principal policy (FREE training gym)",
-        "title": "Hyperliquid Policy Eval",
+        "description": "[alias] Use trade_hyperliquid_eval_order.",
+        "title": "Hyperliquid Policy Eval (alias)",
         "annotations": {"readOnlyHint": True},
         "inputSchema": {
             "type": "object",
             "properties": {
                 "principal": {"type": "string"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
                 "coin": {"type": "string"},
                 "side": {"type": "string"},
                 "size": {"type": "number"},
@@ -700,6 +809,9 @@ def build_server_card() -> dict:
             "currency": "USDC on Base",
             "rest": "Wallet agents pay via HTTP 402 on REST endpoints",
             "free_tools": ["crypto_prices", "fear_greed", "ip_geolocation", "list_policies", "agent_context",
+                           "trade_hyperliquid_order", "trade_hyperliquid_cancel", "trade_hyperliquid_order_status",
+                           "trade_hyperliquid_get_policy", "trade_hyperliquid_set_policy",
+                           "trade_hyperliquid_paper_order", "trade_hyperliquid_eval_order",
                            "hl_place_order", "hl_cancel_order", "hl_order_status", "hl_get_policy",
                            "hl_set_policy", "hl_paper_order", "hl_eval_order"],
             "paid_tools": {
@@ -1168,39 +1280,53 @@ async def _execute_tool(tool_name: str, args: dict, request: Request | None = No
             from media_gateway import text_to_speech
             return text_to_speech(text=args.get("text", ""), voice=args.get("voice", "alloy"))
 
-        elif tool_name == "hl_place_order":
+        elif tool_name in ("trade_hyperliquid_order", "hl_place_order"):
             from hyperliquid_data import HLForwardRequest, SignedHLPayload, OrderCheckFields, forward_signed_action
             signed = SignedHLPayload(**args["signed"])
             check = OrderCheckFields(**args["check"]) if args.get("check") else None
-            req = HLForwardRequest(principal=args["principal"], signed=signed, check=check)
+            req = HLForwardRequest(
+                principal=args["principal"],
+                market_type=args.get("market_type", "perp"),
+                signed=signed,
+                check=check,
+            )
             return forward_signed_action(req)
 
-        elif tool_name == "hl_cancel_order":
+        elif tool_name in ("trade_hyperliquid_cancel", "hl_cancel_order"):
             from hyperliquid_data import HLForwardRequest, SignedHLPayload, forward_signed_action
             signed = SignedHLPayload(**args["signed"])
-            req = HLForwardRequest(principal=args["principal"], signed=signed)
+            req = HLForwardRequest(
+                principal=args["principal"],
+                market_type=args.get("market_type", "perp"),
+                signed=signed,
+            )
             return forward_signed_action(req)
 
-        elif tool_name == "hl_order_status":
+        elif tool_name in ("trade_hyperliquid_order_status", "hl_order_status"):
             from hyperliquid_data import get_order_status
             return get_order_status(args["user"], args["oid"])
 
-        elif tool_name == "hl_get_policy":
+        elif tool_name in ("trade_hyperliquid_get_policy", "hl_get_policy"):
             from hyperliquid_data import get_policy
             return get_policy(args["principal"]).model_dump()
 
-        elif tool_name == "hl_set_policy":
+        elif tool_name in ("trade_hyperliquid_set_policy", "hl_set_policy"):
             from hyperliquid_data import HLExecutionPolicy, set_policy
             return set_policy(HLExecutionPolicy(**args)).model_dump()
 
-        elif tool_name == "hl_paper_order":
+        elif tool_name in ("trade_hyperliquid_paper_order", "hl_paper_order"):
             from hyperliquid_data import HLPaperOrderRequest, place_paper_order
             return place_paper_order(HLPaperOrderRequest(**args))
 
-        elif tool_name == "hl_eval_order":
+        elif tool_name in ("trade_hyperliquid_eval_order", "hl_eval_order"):
             from hyperliquid_data import eval_order_against_policy
             return eval_order_against_policy(
-                args["principal"], args["coin"], args["side"], float(args["size"]), float(args["price"])
+                args["principal"],
+                args["coin"],
+                args["side"],
+                float(args["size"]),
+                float(args["price"]),
+                market_type=args.get("market_type", "perp"),
             )
 
         else:
