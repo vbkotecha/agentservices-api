@@ -1,0 +1,260 @@
+{
+  "meta": {
+    "title": "Yappa Ops",
+    "updatedAt": "2026-09-04T02:42:00Z",
+    "updatedBy": "Main Bot",
+    "mode": "WAR TIME"
+  },
+  "rivals": [
+    {
+      "id": "hyprearn",
+      "name": "HyprEarn",
+      "status": "tracked",
+      "threat": "high",
+      "notes": "HL yield/trade agent — direct overlap on Hyperliquid execution lane",
+      "url": "https://hyprearn.com"
+    }
+  ],
+  "health": {
+    "status": "ok",
+    "httpCode": 200,
+    "version": "v6.0.0",
+    "endpoint": "https://agentservices.to/health",
+    "checkedAt": "2026-09-04T02:28:00Z"
+  },
+  "squads": [
+    {
+      "id": "main-bot",
+      "name": "Main Bot",
+      "codename": "WAR TIME",
+      "status": "active",
+      "headline": "Shipping /v1/trade/hyperliquid — beat HyprEarn",
+      "details": [
+        "/v1/trade/execute — next",
+        "Rival: HyprEarn tracked",
+        "Fidelity / Schwab — roadmap"
+      ],
+      "priority": "critical"
+    },
+    {
+      "id": "distribution",
+      "name": "Distribution",
+      "codename": "DIST",
+      "status": "active",
+      "headline": "agent402.tools live",
+      "details": [
+        "IndexNow leftovers",
+        "Schema paths cleanup"
+      ],
+      "priority": "normal"
+    },
+    {
+      "id": "radar",
+      "name": "Radar",
+      "codename": "RADAR",
+      "status": "watch",
+      "headline": "No paid trade SKU yet — HyprEarn moving",
+      "details": [
+        "24h volume ~$54k",
+        "HyprEarn: tracked rival",
+        "Monitoring conversion funnel"
+      ],
+      "priority": "normal"
+    },
+    {
+      "id": "money-maker",
+      "name": "Money Maker",
+      "codename": "GRANT",
+      "status": "active",
+      "headline": "NLnet application open",
+      "details": [
+        "EU co-applicant gate",
+        "Deadline tracking"
+      ],
+      "priority": "high"
+    }
+  ],
+  "kanban": {
+    "backlog": [
+      {
+        "id": "bl-1",
+        "title": "/v1/trade/execute endpoint",
+        "squad": "main-bot",
+        "tags": ["api", "trading"],
+        "priority": "high"
+      },
+      {
+        "id": "bl-2",
+        "title": "Fidelity integration",
+        "squad": "main-bot",
+        "tags": ["tradfi", "roadmap"],
+        "priority": "low"
+      },
+      {
+        "id": "bl-3",
+        "title": "Schwab integration",
+        "squad": "main-bot",
+        "tags": ["tradfi", "roadmap"],
+        "priority": "low"
+      },
+      {
+        "id": "bl-4",
+        "title": "IndexNow schema path cleanup",
+        "squad": "distribution",
+        "tags": ["seo", "schema"],
+        "priority": "normal"
+      },
+      {
+        "id": "bl-5",
+        "title": "Paid trade SKU definition",
+        "squad": "radar",
+        "tags": ["pricing", "product"],
+        "priority": "high"
+      },
+      {
+        "id": "bl-6",
+        "title": "NLnet EU co-applicant outreach",
+        "squad": "money-maker",
+        "tags": ["grant", "eu"],
+        "priority": "high"
+      },
+      {
+        "id": "bl-7",
+        "title": "HyprEarn competitive intel brief",
+        "squad": "radar",
+        "tags": ["rival", "hyprearn", "war-time"],
+        "priority": "high"
+      }
+    ],
+    "inFlight": [
+      {
+        "id": "if-1",
+        "title": "Hyperliquid trade PR",
+        "squad": "main-bot",
+        "tags": ["api", "hl", "pr"],
+        "priority": "critical",
+        "link": "https://github.com/yappa-ventures/agentservices/pull/new/cursor/hyperliquid-execution-door-48ee"
+      },
+      {
+        "id": "if-2",
+        "title": "Ops dashboard ship",
+        "squad": "main-bot",
+        "tags": ["infra", "dashboard", "war-time"],
+        "priority": "high"
+      },
+      {
+        "id": "if-3",
+        "title": "McpMux #293",
+        "squad": "distribution",
+        "tags": ["mcp", "mux"],
+        "priority": "normal",
+        "link": "https://github.com/yappa-ventures/mcpmux/issues/293"
+      }
+    ],
+    "done": [
+      {
+        "id": "dn-1",
+        "title": "/v1/trade/hyperliquid endpoint",
+        "squad": "main-bot",
+        "tags": ["api", "hl"],
+        "priority": "critical",
+        "completedAt": "2026-09-03T18:00:00Z"
+      },
+      {
+        "id": "dn-2",
+        "title": "agent402.tools launch",
+        "squad": "distribution",
+        "tags": ["dist", "launch"],
+        "priority": "high",
+        "completedAt": "2026-09-02T12:00:00Z"
+      },
+      {
+        "id": "dn-3",
+        "title": "Prod health v6.0.0 stable",
+        "squad": "main-bot",
+        "tags": ["ops", "release"],
+        "priority": "normal",
+        "completedAt": "2026-09-01T09:00:00Z"
+      }
+    ]
+  },
+  "activity": [
+    {
+      "id": "act-0",
+      "timestamp": "2026-09-04T02:42:00Z",
+      "squad": "radar",
+      "type": "metric",
+      "message": "WAR TIME — HyprEarn added as tracked rival on HL trade lane"
+    },
+    {
+      "id": "act-1",
+      "timestamp": "2026-09-04T02:28:00Z",
+      "squad": "main-bot",
+      "type": "health",
+      "message": "Prod health check passed — 200 v6.0.0"
+    },
+    {
+      "id": "act-2",
+      "timestamp": "2026-09-04T01:45:00Z",
+      "squad": "main-bot",
+      "type": "ship",
+      "message": "Started ops dashboard build — Mission Control v1"
+    },
+    {
+      "id": "act-3",
+      "timestamp": "2026-09-04T00:30:00Z",
+      "squad": "main-bot",
+      "type": "pr",
+      "message": "Hyperliquid trade PR opened — /v1/trade/hyperliquid"
+    },
+    {
+      "id": "act-4",
+      "timestamp": "2026-09-03T22:15:00Z",
+      "squad": "radar",
+      "type": "metric",
+      "message": "24h trading volume ~$54k — no paid SKU yet"
+    },
+    {
+      "id": "act-5",
+      "timestamp": "2026-09-03T18:00:00Z",
+      "squad": "main-bot",
+      "type": "ship",
+      "message": "Shipped /v1/trade/hyperliquid to production"
+    },
+    {
+      "id": "act-6",
+      "timestamp": "2026-09-03T14:20:00Z",
+      "squad": "distribution",
+      "type": "issue",
+      "message": "McpMux #293 assigned — mux routing cleanup"
+    },
+    {
+      "id": "act-7",
+      "timestamp": "2026-09-03T10:00:00Z",
+      "squad": "money-maker",
+      "type": "grant",
+      "message": "NLnet application window opened — seeking EU co-applicant"
+    },
+    {
+      "id": "act-8",
+      "timestamp": "2026-09-02T12:00:00Z",
+      "squad": "distribution",
+      "type": "ship",
+      "message": "agent402.tools is live"
+    },
+    {
+      "id": "act-9",
+      "timestamp": "2026-09-02T08:30:00Z",
+      "squad": "distribution",
+      "type": "seo",
+      "message": "IndexNow ping sent — schema path leftovers flagged"
+    },
+    {
+      "id": "act-10",
+      "timestamp": "2026-09-01T09:00:00Z",
+      "squad": "main-bot",
+      "type": "release",
+      "message": "Released v6.0.0 — all health checks green"
+    }
+  ]
+}
