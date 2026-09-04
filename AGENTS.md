@@ -44,16 +44,26 @@ Base: `/v1/trade/hyperliquid`
 
 ## Agent operating rules
 
-Cloud agents own the full ship loop. **Do not open PRs for Vivek to review code.**
+Cloud agents own the full ship loop end-to-end. **Prefer direct ship to `main`.** Never leave a PR for Vivek to review or merge.
 
-1. **Implement** on a branch or directly on `main` when scope is small and locked here.
-2. **Test** — run relevant pytest; add tests for new trade paths and policy behavior.
-3. **Merge** to `main` (squash-merge acceptable).
+### Ship workflow
+
+1. **Implement** on a short-lived branch or directly on `main` when scope is small.
+2. **Test** — run relevant pytest / build; add tests for new trade paths and policy behavior.
+3. **Merge immediately** — squash-merge the branch to `main` yourself, or push to `main` directly if the diff is clean. Do this before any user-facing update is considered done.
 4. **Deploy** — production auto-deploys on `main` push (Vercel, Yappa Ventures / `agentservices-api`).
 5. **E2E smoke** after deploy:
    - `GET https://api.agentservices.to/health` — `deploy.commit` matches merge SHA
    - `GET https://api.agentservices.to/openapi.json` — trade paths present (e.g. `/v1/trade/hyperliquid/order`)
    - Probe stubs return expected responses (policy 403, validation 422) — **not 404**
+
+### PRs (internal only)
+
+PRs may be created for CI or audit trail, but they are **agent-owned**:
+
+- The agent must squash-merge (or merge) to `main` in the same session — never hand off an open PR.
+- **Never surface PR links to Vivek** in reports, summaries, or follow-ups.
+- If a PR is open when work finishes, merge it before ending the turn.
 
 ### When to ping Vivek
 
@@ -63,7 +73,7 @@ Only for **human gates** that agents cannot satisfy:
 - DNS, domain, or Vercel project ownership changes
 - Secrets that are not in the environment (new API keys, OAuth client setup)
 
-Never ask Vivek to review PRs, diff code, or click merge.
+Never ask Vivek to review PRs, diff code, click merge, or approve deploys.
 
 ## Production
 
