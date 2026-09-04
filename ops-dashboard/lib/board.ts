@@ -6,6 +6,10 @@ export type SquadStatus = "active" | "watch" | "idle";
 
 export type KanbanColumn = "backlog" | "inFlight" | "done";
 
+export type HumanColumn = "needsYou" | "waiting" | "done";
+
+export type HumanOwner = "Vivek";
+
 export type ActivityType =
   | "health"
   | "ship"
@@ -47,6 +51,16 @@ export interface KanbanCard {
   updatedAt?: string;
 }
 
+export interface HumanCard {
+  id: string;
+  title: string;
+  description: string;
+  owner: HumanOwner;
+  priority: Priority;
+  link?: string;
+  completedAt?: string;
+}
+
 export interface ActivityItem {
   id: string;
   timestamp: string;
@@ -67,6 +81,11 @@ export interface BoardData {
     backlog: KanbanCard[];
     inFlight: KanbanCard[];
     done: KanbanCard[];
+  };
+  humanBoard: {
+    needsYou: HumanCard[];
+    waiting: HumanCard[];
+    done: HumanCard[];
   };
   activity: ActivityItem[];
 }
@@ -117,6 +136,18 @@ export const COLUMN_STATUS: Record<KanbanColumn, { label: string; chip: string }
   backlog: { label: "Backlog", chip: "bg-ops-border-subtle text-ops-secondary" },
   inFlight: { label: "In Flight", chip: "bg-ops-amber-light text-ops-amber" },
   done: { label: "Done", chip: "bg-ops-green-light text-ops-green" },
+};
+
+export const HUMAN_COLUMN_LABELS: Record<HumanColumn, string> = {
+  needsYou: "Needs You",
+  waiting: "Waiting",
+  done: "Done",
+};
+
+export const HUMAN_COLUMN_CHIP: Record<HumanColumn, string> = {
+  needsYou: "bg-ops-red-light text-ops-red",
+  waiting: "bg-ops-amber-light text-ops-amber",
+  done: "bg-ops-green-light text-ops-green",
 };
 
 import { readFile } from "fs/promises";

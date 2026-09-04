@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Yappa Ops",
-    "updatedAt": "2026-09-04T02:42:00Z",
+    "updatedAt": "2026-09-04T03:12:00Z",
     "updatedBy": "Main Bot"
   },
   "health": {
@@ -17,7 +17,7 @@
       "name": "Main Bot",
       "codename": "CORE",
       "status": "active",
-      "headline": "Shipping /v1/trade/hyperliquid",
+      "headline": "/v1/trade/hyperliquid shipped",
       "details": [
         "/v1/trade/execute — next",
         "Fidelity / Schwab — roadmap"
@@ -29,12 +29,12 @@
       "name": "Distribution",
       "codename": "DIST",
       "status": "active",
-      "headline": "agent402.tools live",
+      "headline": "MCP registry submits — OAuth gates",
       "details": [
-        "IndexNow leftovers",
-        "Schema paths cleanup"
+        "Smithery, Glama, mcp.so blocked on Vivek sign-in",
+        "IndexNow — agent lane"
       ],
-      "priority": "normal"
+      "priority": "high"
     },
     {
       "id": "radar",
@@ -70,7 +70,7 @@
         "ownerId": "main-bot",
         "tags": ["api", "trading"],
         "priority": "high",
-        "description": "Order execution endpoint for Hyperliquid — follow-on to quote endpoint",
+        "description": "Venue-neutral trade router — follow-on to Hyperliquid door",
         "updatedAt": "2026-09-03T16:00:00Z"
       },
       {
@@ -114,16 +114,6 @@
         "updatedAt": "2026-09-03T20:00:00Z"
       },
       {
-        "id": "bl-6",
-        "title": "NLnet EU co-applicant outreach",
-        "squad": "money-maker",
-        "ownerId": "money-maker",
-        "tags": ["grant", "eu"],
-        "priority": "high",
-        "description": "Find and onboard EU-based co-applicant for NLnet grant",
-        "updatedAt": "2026-09-03T10:00:00Z"
-      },
-      {
         "id": "bl-7",
         "title": "Competitive intel brief",
         "squad": "radar",
@@ -135,27 +125,6 @@
       }
     ],
     "inFlight": [
-      {
-        "id": "if-1",
-        "title": "Hyperliquid trade PR",
-        "squad": "main-bot",
-        "ownerId": "main-bot",
-        "tags": ["api", "hl", "pr"],
-        "priority": "critical",
-        "description": "PR for /v1/trade/hyperliquid — quote + execution door",
-        "link": "https://github.com/yappa-ventures/agentservices/pull/new/cursor/hyperliquid-execution-door-48ee",
-        "updatedAt": "2026-09-04T00:30:00Z"
-      },
-      {
-        "id": "if-2",
-        "title": "Ops dashboard ship",
-        "squad": "main-bot",
-        "ownerId": "main-bot",
-        "tags": ["infra", "dashboard"],
-        "priority": "high",
-        "description": "Founder ops Kanban board — light theme, board.json data source",
-        "updatedAt": "2026-09-04T02:30:00Z"
-      },
       {
         "id": "if-3",
         "title": "McpMux #293",
@@ -171,14 +140,25 @@
     "done": [
       {
         "id": "dn-1",
-        "title": "/v1/trade/hyperliquid endpoint",
+        "title": "Hyperliquid trade door",
         "squad": "main-bot",
         "ownerId": "main-bot",
-        "tags": ["api", "hl"],
+        "tags": ["api", "hl", "trade"],
         "priority": "critical",
-        "description": "Quote endpoint for Hyperliquid perpetuals trading",
+        "description": "/v1/trade/hyperliquid shipped — order, cancel, policy, paper, eval",
         "completedAt": "2026-09-03T18:00:00Z",
-        "updatedAt": "2026-09-03T18:00:00Z"
+        "updatedAt": "2026-09-04T03:00:00Z"
+      },
+      {
+        "id": "dn-4",
+        "title": "Ops dashboard + Human Actions Kanban",
+        "squad": "main-bot",
+        "ownerId": "main-bot",
+        "tags": ["infra", "dashboard"],
+        "priority": "high",
+        "description": "Light-first Mission Board + Vivek Human Actions plate on board.json",
+        "completedAt": "2026-09-04T03:10:00Z",
+        "updatedAt": "2026-09-04T03:10:00Z"
       },
       {
         "id": "dn-2",
@@ -204,7 +184,114 @@
       }
     ]
   },
+  "humanBoard": {
+    "needsYou": [
+      {
+        "id": "hu-dist-1",
+        "title": "Smithery — sign in & publish MCP",
+        "description": "Still unlisted — Dist cannot finish GitHub/Smithery OAuth",
+        "owner": "Vivek",
+        "priority": "high",
+        "link": "https://smithery.ai/new"
+      },
+      {
+        "id": "hu-dist-2",
+        "title": "Glama — claim listing",
+        "description": "Listed but unclaimed → cannot install / weak discoverability",
+        "owner": "Vivek",
+        "priority": "high",
+        "link": "https://glama.ai/mcp/servers/vbkotecha/agentservices-api"
+      },
+      {
+        "id": "hu-dist-3",
+        "title": "mcp.so — sign in & submit",
+        "description": "Submit AgentServices MCP — sign-in gated",
+        "owner": "Vivek",
+        "priority": "high",
+        "link": "https://mcp.so"
+      },
+      {
+        "id": "hu-dist-4",
+        "title": "mcpdir.dev — GitHub sign-in & submit",
+        "description": "Registry submit blocked on GitHub OAuth",
+        "owner": "Vivek",
+        "priority": "high",
+        "link": "https://mcpdir.dev"
+      },
+      {
+        "id": "hu-dist-5",
+        "title": "CuratedMCP — GitHub sign-in & submit",
+        "description": "Registry submit blocked on GitHub OAuth",
+        "owner": "Vivek",
+        "priority": "high",
+        "link": "https://curatedmcp.com"
+      },
+      {
+        "id": "hu-dist-6",
+        "title": "toolsdk-mcp-registry — gh login",
+        "description": "Dist gh unauthenticated — login as vbkotecha to finish submit",
+        "owner": "Vivek",
+        "priority": "high"
+      },
+      {
+        "id": "hu-dist-7",
+        "title": "Reddit — log posting account",
+        "description": "No Reddit session — Dist needs browser login to draft/post",
+        "owner": "Vivek",
+        "priority": "high",
+        "link": "https://www.reddit.com/login"
+      },
+      {
+        "id": "hu-dist-8",
+        "title": "MCP Registry / MCPStore / SuperPower slug fix",
+        "description": "Optional — fix stale aiservices-api → agentservices-api if UI needs your login",
+        "owner": "Vivek",
+        "priority": "low"
+      },
+      {
+        "id": "hu-ops-1",
+        "title": "ops.agentservices.to CNAME",
+        "description": "Optional clean URL — point CNAME to cname.vercel-dns.com",
+        "owner": "Vivek",
+        "priority": "low",
+        "link": "https://vercel.com/docs/projects/domains/add-a-domain"
+      },
+      {
+        "id": "hu-hl-1",
+        "title": "HL approveAgent on main wallet",
+        "description": "Needed when we run live signed-order E2E smoke",
+        "owner": "Vivek",
+        "priority": "high",
+        "link": "https://api.agentservices.to/v1/trade/hyperliquid/bootstrap"
+      },
+      {
+        "id": "hu-grant-1",
+        "title": "NLnet EU co-applicant",
+        "description": "Grant application blocked until EU co-applicant is confirmed",
+        "owner": "Vivek",
+        "priority": "high"
+      }
+    ],
+    "waiting": [],
+    "done": [
+      {
+        "id": "hd-1",
+        "title": "Vercel ops dashboard project",
+        "description": "yappa-ops-dashboard live on Vercel",
+        "owner": "Vivek",
+        "priority": "normal",
+        "completedAt": "2026-09-04T02:00:00Z"
+      }
+    ]
+  },
   "activity": [
+    {
+      "id": "act-0",
+      "timestamp": "2026-09-04T03:10:00Z",
+      "squad": "main-bot",
+      "type": "ship",
+      "message": "Human Actions Kanban seeded — Dist OAuth gates on Vivek plate"
+    },
     {
       "id": "act-1",
       "timestamp": "2026-09-04T02:28:00Z",
@@ -217,21 +304,7 @@
       "timestamp": "2026-09-04T01:45:00Z",
       "squad": "main-bot",
       "type": "ship",
-      "message": "Started ops dashboard redesign — Kanban v2"
-    },
-    {
-      "id": "act-3",
-      "timestamp": "2026-09-04T00:30:00Z",
-      "squad": "main-bot",
-      "type": "pr",
-      "message": "Hyperliquid trade PR opened — /v1/trade/hyperliquid"
-    },
-    {
-      "id": "act-4",
-      "timestamp": "2026-09-03T22:15:00Z",
-      "squad": "radar",
-      "type": "metric",
-      "message": "24h trading volume ~$54k — no paid SKU yet"
+      "message": "Ops dashboard redesign — light-first Kanban v2"
     },
     {
       "id": "act-5",

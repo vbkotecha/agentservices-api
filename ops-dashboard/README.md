@@ -61,6 +61,9 @@ Schema:
 | `kanban.backlog` | Backlog column cards |
 | `kanban.inFlight` | In-flight column cards |
 | `kanban.done` | Done column cards |
+| `humanBoard.needsYou` | Human gates — action required from Vivek |
+| `humanBoard.waiting` | Human gates — blocked or awaiting external |
+| `humanBoard.done` | Human gates — completed by Vivek |
 | `activity` | Chronological activity feed |
 
 Main Bot can update this file directly via PR or API hook in a future version.

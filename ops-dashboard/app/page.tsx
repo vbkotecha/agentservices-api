@@ -1,4 +1,5 @@
 import { ActivityFeed } from "@/components/ActivityFeed";
+import { HumanActionsBoard } from "@/components/HumanActionsBoard";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { SquadStrip } from "@/components/SquadStrip";
 import { TopBar } from "@/components/TopBar";
@@ -18,6 +19,12 @@ export default async function Home() {
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 sm:px-6 sm:py-6">
         <SquadStrip squads={board.squads} />
+
+        <HumanActionsBoard
+          needsYou={board.humanBoard.needsYou}
+          waiting={board.humanBoard.waiting}
+          done={board.humanBoard.done}
+        />
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
           <KanbanBoard

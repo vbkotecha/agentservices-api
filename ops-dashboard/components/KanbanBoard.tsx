@@ -148,7 +148,7 @@ export function KanbanBoard({ backlog, inFlight, done }: KanbanBoardProps) {
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ops-text">Board</h2>
+        <h2 className="text-sm font-semibold text-ops-text">Mission Board</h2>
         <p className="text-xs text-ops-muted">
           {backlog.length + inFlight.length + done.length} items
         </p>
