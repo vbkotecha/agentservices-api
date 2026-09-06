@@ -9,6 +9,7 @@ Locked conventions for cloud agents and autonomous contributors. Follow on every
 | Phase | Path | Status |
 |-------|------|--------|
 | **Now** | `/v1/trade/hyperliquid/...` | Shipped |
+| **Now** | `/v1/trade/pacifica/...` | Shipped |
 | **Next** | `/v1/trade/{venue}/...` | Add venues under this prefix |
 | **Later** | `/v1/trade/execute` | Venue-neutral router (not built yet) |
 | **Never** | `/v1/trade/router` | Do not create or alias |
@@ -32,10 +33,29 @@ Base: `/v1/trade/hyperliquid`
 
 **MCP tools:** `trade_hyperliquid_*` (primary). Legacy `hl_*` names are aliases only.
 
+### Pacifica (second venue)
+
+Base: `/v1/trade/pacifica`
+
+| Endpoint | Method | Notes |
+|----------|--------|-------|
+| `/order` | POST | Forward agent-signed create_order / create_market_order |
+| `/cancel` | POST | Forward agent-signed cancel_order |
+| `/order` | GET | Status (query: `user`, `oid`) |
+| `/order/{id}` | GET | Status by path param |
+| `/policy` | GET / PUT | Execution leash |
+| `/paper/order` | POST | Paper training |
+| `/eval/order` | POST | Policy pass/fail eval |
+| `/bootstrap` | GET | bind_agent_wallet + Ed25519 signing docs |
+
+**Request body:** include `market_type` — `spot`, `perp`, or `future` (validated). Pacifica implements perp + spot today; unsupported types return machine-readable `market_type_not_supported` (422).
+
+**MCP tools:** `trade_pacifica_*` (primary).
+
 ### Trade invariants (all venues)
 
 - **Free policy leash** — max notional, coin allowlist, kill switch. No x402 on execution paths.
-- **No venue key custody** — agents sign locally (`approveAgent` + local agent wallet). AgentServices never collects venue API keys or user private keys.
+- **No venue key custody** — agents sign locally (HL: `approveAgent` + agent wallet; Pacifica: `bind_agent_wallet` + Agent Wallet). AgentServices never collects venue API keys or user private keys.
 - **Door + forward** — policy check then forward signed payload. Not a smarter router; not a better fill.
 
 ### Dual trade door — execution vs monetization
@@ -44,10 +64,10 @@ Two doors, one product. Do not collapse them.
 
 | Door | What | Monetization |
 |------|------|--------------|
-| **Execution** | `/v1/trade/{venue}/...` (HL today), later `/v1/trade/execute` | **Always free of x402 paywall.** Policy leash only. |
+| **Execution** | `/v1/trade/{venue}/...` (HL + Pacifica today), later `/v1/trade/execute` | **Always free of x402 paywall.** Policy leash only. |
 | **Data / discovery** | prices, indicators, search, synthesis, MCP paid tools | **x402** per-request SKUs (unchanged). |
 
-**Locked:** venue execution paths (`/v1/trade/hyperliquid/order`, cancel, policy, paper, eval) must never return HTTP 402 or require USDC to pass policy and forward.
+**Locked:** venue execution paths (`/v1/trade/hyperliquid/...`, `/v1/trade/pacifica/...` — order, cancel, policy, paper, eval) must never return HTTP 402 or require USDC to pass policy and forward.
 
 **Future multi-venue / `/v1/trade/execute`:** monetize via a small take on routed notional (~5 bps), embedded in the route — **not** by gating the HL door or blocking execution behind x402. Venue doors stay free; the router earns on flow, not on access.
 

@@ -660,6 +660,125 @@ MCP_TOOLS = [
             "required": ["principal", "coin", "side", "size", "price"]
         }
     },
+    {
+        "name": "trade_pacifica_order",
+        "description": "Forward agent-signed Pacifica order after policy check (FREE — not x402). market_type: spot|perp|future. Agent signs locally; no venue API keys.",
+        "title": "Trade Pacifica Order",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
+                "signed": {
+                    "type": "object",
+                    "properties": {
+                        "operation": {"type": "string", "enum": ["create_order", "create_market_order", "cancel_order"]},
+                        "request": {"type": "object"}
+                    },
+                    "required": ["operation", "request"]
+                },
+                "check": {"type": "object"}
+            },
+            "required": ["principal", "signed"]
+        }
+    },
+    {
+        "name": "trade_pacifica_cancel",
+        "description": "Forward agent-signed Pacifica cancel after policy check (FREE — not x402)",
+        "title": "Trade Pacifica Cancel",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
+                "signed": {
+                    "type": "object",
+                    "properties": {
+                        "operation": {"type": "string", "enum": ["cancel_order"]},
+                        "request": {"type": "object"}
+                    },
+                    "required": ["operation", "request"]
+                }
+            },
+            "required": ["principal", "signed"]
+        }
+    },
+    {
+        "name": "trade_pacifica_order_status",
+        "description": "Read Pacifica order status via orders API (FREE)",
+        "title": "Trade Pacifica Order Status",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "user": {"type": "string"},
+                "oid": {"type": "string"}
+            },
+            "required": ["user", "oid"]
+        }
+    },
+    {
+        "name": "trade_pacifica_get_policy",
+        "description": "Get execution leash policy for a principal (max notional, allowlist, kill switch) (FREE)",
+        "title": "Trade Pacifica Get Policy",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "properties": {"principal": {"type": "string"}},
+            "required": ["principal"]
+        }
+    },
+    {
+        "name": "trade_pacifica_set_policy",
+        "description": "Set execution leash policy for a principal (FREE)",
+        "title": "Trade Pacifica Set Policy",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string"},
+                "max_notional_usd": {"type": "number", "default": 50000},
+                "allowed_coins": {"type": "array", "items": {"type": "string"}, "default": ["BTC", "ETH"]},
+                "enabled": {"type": "boolean", "default": True},
+                "kill_switch": {"type": "boolean", "default": False}
+            },
+            "required": ["principal"]
+        }
+    },
+    {
+        "name": "trade_pacifica_paper_order",
+        "description": "Paper/sim order — same shape as live, no Pacifica call (FREE training gym)",
+        "title": "Trade Pacifica Paper Order",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string", "default": "paper-agent"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
+                "coin": {"type": "string", "default": "BTC"},
+                "side": {"type": "string", "default": "buy"},
+                "size": {"type": "number", "default": 0.01},
+                "price": {"type": "number", "default": 50000},
+                "order_type": {"type": "string", "default": "limit"}
+            }
+        }
+    },
+    {
+        "name": "trade_pacifica_eval_order",
+        "description": "Pass/fail eval: candidate order vs principal policy (FREE training gym)",
+        "title": "Trade Pacifica Policy Eval",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string"},
+                "market_type": {"type": "string", "enum": ["spot", "perp", "future"], "default": "perp"},
+                "coin": {"type": "string"},
+                "side": {"type": "string"},
+                "size": {"type": "number"},
+                "price": {"type": "number"}
+            },
+            "required": ["principal", "coin", "side", "size", "price"]
+        }
+    },
     # Deprecated aliases (PR #64 names) — prefer trade_hyperliquid_*
     {
         "name": "hl_place_order",
@@ -812,6 +931,9 @@ def build_server_card() -> dict:
                            "trade_hyperliquid_order", "trade_hyperliquid_cancel", "trade_hyperliquid_order_status",
                            "trade_hyperliquid_get_policy", "trade_hyperliquid_set_policy",
                            "trade_hyperliquid_paper_order", "trade_hyperliquid_eval_order",
+                           "trade_pacifica_order", "trade_pacifica_cancel", "trade_pacifica_order_status",
+                           "trade_pacifica_get_policy", "trade_pacifica_set_policy",
+                           "trade_pacifica_paper_order", "trade_pacifica_eval_order",
                            "hl_place_order", "hl_cancel_order", "hl_order_status", "hl_get_policy",
                            "hl_set_policy", "hl_paper_order", "hl_eval_order"],
             "paid_tools": {
@@ -1320,6 +1442,55 @@ async def _execute_tool(tool_name: str, args: dict, request: Request | None = No
 
         elif tool_name in ("trade_hyperliquid_eval_order", "hl_eval_order"):
             from hyperliquid_data import eval_order_against_policy
+            return eval_order_against_policy(
+                args["principal"],
+                args["coin"],
+                args["side"],
+                float(args["size"]),
+                float(args["price"]),
+                market_type=args.get("market_type", "perp"),
+            )
+
+        elif tool_name == "trade_pacifica_order":
+            from pacifica_data import PacificaForwardRequest, SignedPacificaPayload, OrderCheckFields, forward_signed_action
+            signed = SignedPacificaPayload(**args["signed"])
+            check = OrderCheckFields(**args["check"]) if args.get("check") else None
+            req = PacificaForwardRequest(
+                principal=args["principal"],
+                market_type=args.get("market_type", "perp"),
+                signed=signed,
+                check=check,
+            )
+            return forward_signed_action(req)
+
+        elif tool_name == "trade_pacifica_cancel":
+            from pacifica_data import PacificaForwardRequest, SignedPacificaPayload, forward_signed_action
+            signed = SignedPacificaPayload(**args["signed"])
+            req = PacificaForwardRequest(
+                principal=args["principal"],
+                market_type=args.get("market_type", "perp"),
+                signed=signed,
+            )
+            return forward_signed_action(req)
+
+        elif tool_name == "trade_pacifica_order_status":
+            from pacifica_data import get_order_status
+            return get_order_status(args["user"], args["oid"])
+
+        elif tool_name == "trade_pacifica_get_policy":
+            from pacifica_data import get_policy
+            return get_policy(args["principal"]).model_dump()
+
+        elif tool_name == "trade_pacifica_set_policy":
+            from pacifica_data import PacificaExecutionPolicy, set_policy
+            return set_policy(PacificaExecutionPolicy(**args)).model_dump()
+
+        elif tool_name == "trade_pacifica_paper_order":
+            from pacifica_data import PacificaPaperOrderRequest, place_paper_order
+            return place_paper_order(PacificaPaperOrderRequest(**args))
+
+        elif tool_name == "trade_pacifica_eval_order":
+            from pacifica_data import eval_order_against_policy
             return eval_order_against_policy(
                 args["principal"],
                 args["coin"],

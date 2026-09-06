@@ -45,6 +45,20 @@ from hyperliquid_data import (
     place_paper_order,
     set_policy,
 )
+from pacifica_data import (
+    PacificaExecutionPolicy,
+    PacificaForwardRequest,
+    PacificaPolicyEvalRequest,
+    PacificaPaperOrderRequest,
+    bootstrap_doc as pacifica_bootstrap_doc,
+    eval_order_against_policy as pacifica_eval_order_against_policy,
+    forward_signed_action as pacifica_forward_signed_action,
+    get_order_status as pacifica_get_order_status,
+    get_paper_orders as pacifica_get_paper_orders,
+    get_policy as pacifica_get_policy,
+    place_paper_order as pacifica_place_paper_order,
+    set_policy as pacifica_set_policy,
+)
 from prediction_data import get_polymarket_markets, get_polymarket_market, get_prediction_summary
 from news_data import get_crypto_news, get_social_trending, get_global_market
 from engine.policy_engine import evaluate_dispute, list_policies
@@ -1327,6 +1341,90 @@ async def trade_hl_eval_order(req: HLPolicyEvalRequest):
     )
 
 
+# --- Trade API: Pacifica (agent-signed, policy-gated; FREE — no x402) ---
+_TRADE_PAC = "/v1/trade/pacifica"
+
+
+@app.get(f"{_TRADE_PAC}/bootstrap", tags=["Trade", "Pacifica"],
+         summary="Pacifica agent-sign bootstrap",
+         description="How to wire bind_agent_wallet + local Ed25519 signing. No venue API keys collected.")
+async def trade_pacifica_bootstrap():
+    return pacifica_bootstrap_doc()
+
+
+@app.get(f"{_TRADE_PAC}/policy/{{principal}}", tags=["Trade", "Pacifica"],
+         summary="Get execution policy",
+         description="Read leash policy for a principal account (max notional, coin allowlist, kill switch).")
+async def trade_pacifica_get_policy(principal: str):
+    return pacifica_get_policy(principal)
+
+
+@app.put(f"{_TRADE_PAC}/policy", tags=["Trade", "Pacifica"],
+         summary="Set execution policy",
+         description="Install or update leash policy for a principal account.")
+async def trade_pacifica_put_policy(policy: PacificaExecutionPolicy):
+    return pacifica_set_policy(policy)
+
+
+@app.post(f"{_TRADE_PAC}/order", tags=["Trade", "Pacifica"],
+          summary="Forward signed Pacifica order",
+          description="Policy-check then forward agent-signed create_order or create_market_order to Pacifica. "
+                      "market_type: spot | perp | future (Pacifica implements perp + spot today). "
+                      "Agent signs locally; we do not collect venue API keys. FREE — not x402.")
+async def trade_pacifica_place_order(req: PacificaForwardRequest):
+    return pacifica_forward_signed_action(req)
+
+
+@app.post(f"{_TRADE_PAC}/cancel", tags=["Trade", "Pacifica"],
+          summary="Forward signed Pacifica cancel",
+          description="Policy-check then forward agent-signed cancel_order to Pacifica. FREE — not x402.")
+async def trade_pacifica_cancel_order(req: PacificaForwardRequest):
+    return pacifica_forward_signed_action(req)
+
+
+@app.get(f"{_TRADE_PAC}/order", tags=["Trade", "Pacifica"],
+         summary="Pacifica order status (query)",
+         description="Read order status from Pacifica orders API (no signing).")
+async def trade_pacifica_order_status_query(
+    user: str = Query(..., description="Main account address"),
+    oid: str = Query(..., description="Order id"),
+):
+    return pacifica_get_order_status(user, oid)
+
+
+@app.get(f"{_TRADE_PAC}/order/{{order_id}}", tags=["Trade", "Pacifica"],
+         summary="Pacifica order status (by id)",
+         description="Read order status from Pacifica orders API (no signing).")
+async def trade_pacifica_order_status_path(
+    order_id: str,
+    user: str = Query(..., description="Main account address"),
+):
+    return pacifica_get_order_status(user, order_id)
+
+
+@app.post(f"{_TRADE_PAC}/paper/order", tags=["Trade", "Pacifica", "Training"],
+          summary="Paper trade order",
+          description="Simulated order with same shape as live path — training gym, no Pacifica call.")
+async def trade_pacifica_paper_order(req: PacificaPaperOrderRequest):
+    return pacifica_place_paper_order(req)
+
+
+@app.get(f"{_TRADE_PAC}/paper/orders", tags=["Trade", "Pacifica", "Training"],
+         summary="List paper orders",
+         description="List simulated orders for a principal.")
+async def trade_pacifica_paper_orders(principal: str = Query("paper-agent")):
+    return {"principal": principal, "orders": pacifica_get_paper_orders(principal)}
+
+
+@app.post(f"{_TRADE_PAC}/eval/order", tags=["Trade", "Pacifica", "Training"],
+          summary="Policy eval (pass/fail)",
+          description="Given cap policy + candidate order fields, return pass or fail. Training gym.")
+async def trade_pacifica_eval_order(req: PacificaPolicyEvalRequest):
+    return pacifica_eval_order_against_policy(
+        req.principal, req.coin, req.side, req.size, req.price, market_type=req.market_type
+    )
+
+
 @app.get("/v1/trending", tags=["Market Data"],
          summary="Trending Tokens",
          description="Get trending tokens and coins being searched right now on CoinGecko.")
@@ -1793,6 +1891,10 @@ async def x402_manifest():
         {"path": "/v1/trade/hyperliquid/cancel", "method": "POST", "price": "$0.00", "description": "Hyperliquid cancel forward (agent-signed, FREE — not x402)"},
         {"path": "/v1/trade/hyperliquid/paper/order", "method": "POST", "price": "$0.00", "description": "Paper/sim HL order for agent training (FREE)"},
         {"path": "/v1/trade/hyperliquid/eval/order", "method": "POST", "price": "$0.00", "description": "Policy pass/fail eval for training (FREE)"},
+        {"path": "/v1/trade/pacifica/order", "method": "POST", "price": "$0.00", "description": "Pacifica order forward (agent-signed, policy-gated, FREE — not x402)"},
+        {"path": "/v1/trade/pacifica/cancel", "method": "POST", "price": "$0.00", "description": "Pacifica cancel forward (agent-signed, FREE — not x402)"},
+        {"path": "/v1/trade/pacifica/paper/order", "method": "POST", "price": "$0.00", "description": "Paper/sim Pacifica order for agent training (FREE)"},
+        {"path": "/v1/trade/pacifica/eval/order", "method": "POST", "price": "$0.00", "description": "Pacifica policy pass/fail eval for training (FREE)"},
         {"path": "/v1/predictions", "method": "GET", "price": "$0.00", "description": "Active prediction markets (FREE)"},
         {"path": "/v1/news", "method": "GET", "price": "$0.00", "description": "Latest crypto news (FREE)"},
         {"path": "/v1/social", "method": "GET", "price": "$0.00", "description": "Trending coins, categories, NFTs (FREE)"},
