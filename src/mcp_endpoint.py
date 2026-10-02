@@ -523,20 +523,6 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "buy_credits",
-        "description": "Get a Stripe Checkout URL to buy a $10 prepaid credit pack (requires Google OAuth login)",
-        "title": "Buy Credits",
-        "annotations": {"readOnlyHint": True},
-        "inputSchema": {"type": "object", "properties": {}}
-    },
-    {
-        "name": "credit_balance",
-        "description": "Check your prepaid credit balance (requires Google OAuth login)",
-        "title": "Credit Balance",
-        "annotations": {"readOnlyHint": True},
-        "inputSchema": {"type": "object", "properties": {}}
-    },
-    {
         "name": "trade_hyperliquid_order",
         "description": "Forward agent-signed Hyperliquid order after policy check (FREE — not x402). market_type: spot|perp|future. Agent signs locally; no venue API keys.",
         "title": "Trade Hyperliquid Order",
@@ -905,11 +891,10 @@ from discovery_surfaces import MCP_URL, mcp_auth_metadata, mcp_pricing_metadata
 
 
 def build_server_card() -> dict:
-    """MCP server card for GEO/discovery crawlers (Smithery, ChatGPT, mcp-marketplace.io)."""
+    """MCP server card for registry and discovery clients."""
     description = (
         "Paid APIs for AI agents — 53 services, 41 paid. 37 MCP tools. "
-        "ChatGPT connector: Google OAuth + Stripe credits at "
-        f"{MCP_URL}. Wallet agents: x402 USDC on Base for REST."
+        f"MCP endpoint: {MCP_URL}. Paid services use x402 USDC on Base via REST."
     )
     card = {
         "serverInfo": {
@@ -954,9 +939,6 @@ def build_server_card() -> dict:
         "documentation": "https://agentservices.to/docs",
         "tools": [{"name": t["name"], "description": t["description"]} for t in MCP_TOOLS],
     }
-    human_pricing = mcp_pricing_metadata().get("mcp_human")
-    if human_pricing:
-        card["pricing"]["mcp_human"] = human_pricing
     return card
 
 
@@ -1038,7 +1020,7 @@ async def mcp_handler(request: Request):
                     "version": "6.0.0",
                     "description": "Paid APIs for AI agents — 53 services, 41 paid. x402 on Base.",
                 },
-                "instructions": "Use tools/list to see available tools. Free tools: crypto_prices, fear_greed, ip_geolocation, list_policies, agent_context. Paid tools return HTTP 402 for x402 payment.",
+                "instructions": "Use tools/list to see available tools. Free tools are available here. Paid tools are refused through MCP; call the corresponding REST endpoint and pay with x402 (USDC on Base).",
             }
         }
 
@@ -1095,14 +1077,11 @@ async def mcp_handler(request: Request):
         tool_name = params.get("name", "")
         args = params.get("arguments", {})
 
-        billing_ctx, billing_error = _prepare_billing(request, tool_name, req_id)
+        billing_error = _prepare_billing(tool_name, req_id)
         if billing_error:
             return JSONResponse(billing_error, status_code=402)
 
         result = await _execute_tool(tool_name, args, request)
-
-        if billing_ctx:
-            _finalize_billing(billing_ctx, result)
 
         return {
             "jsonrpc": "2.0",
@@ -1132,83 +1111,42 @@ async def mcp_handler(request: Request):
     )
 
 
-def _is_tool_failure(result) -> bool:
-    return isinstance(result, dict) and bool(result.get("error"))
+FREE_MCP_TOOLS = frozenset(
+    tool["name"]
+    for tool in MCP_TOOLS
+    if "FREE" in tool.get("description", "").upper()
+) | frozenset({
+    "hl_place_order",
+    "hl_cancel_order",
+    "hl_order_status",
+    "hl_get_policy",
+    "hl_set_policy",
+    "hl_paper_order",
+    "hl_eval_order",
+})
 
 
-def _prepare_billing(request: Request, tool_name: str, req_id):
-    """Check auth and balance for paid MCP tools. Debit happens after success."""
-    from human_billing.pricing import is_paid_mcp_tool, tool_price_usd
-    from human_billing.router import authenticate_mcp_request
-    from human_billing.config import credits_enabled, oauth_enabled
-    from human_billing.credits import get_balance, InsufficientCredits
-    from human_billing.stripe_billing import create_checkout_session
-
-    if not is_paid_mcp_tool(tool_name):
-        return None, None
-
-    user = authenticate_mcp_request(request)
-    if not user:
-        if oauth_enabled():
-            return None, {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "error": {
-                    "code": -32000,
-                    "message": "Authentication required for paid MCP tools. Connect via Google OAuth in ChatGPT.",
-                },
-            }
-        return None, None
-
-    if not credits_enabled():
-        return None, {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "error": {
-                "code": -32002,
-                "message": "Credits billing is not configured on this deployment.",
+def _prepare_billing(tool_name: str, req_id):
+    """Refuse every non-whitelisted MCP tool so paid services cannot bypass x402."""
+    if tool_name in FREE_MCP_TOOLS:
+        return None
+    return {
+        "jsonrpc": "2.0",
+        "id": req_id,
+        "error": {
+            "code": -32002,
+            "message": (
+                "Paid tools are not available through MCP. Call the corresponding "
+                "paid REST endpoint and pay with x402 (USDC on Base)."
+            ),
+            "data": {
+                "payment_protocol": "x402",
+                "currency": "USDC",
+                "network": "Base",
+                "instructions": "Use the paid REST endpoint; it returns HTTP 402 with x402 payment details.",
             },
-        }
-
-    price = tool_price_usd(tool_name)
-    balance = get_balance(user["sub"])
-    if balance < price:
-        exc = InsufficientCredits(balance, price)
-        checkout = create_checkout_session(
-            google_sub=user["sub"],
-            email=user.get("email", ""),
-        )
-        return None, {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "error": {
-                "code": -32001,
-                "message": (
-                    f"Insufficient credits: balance ${exc.balance}, need ${exc.required}. "
-                    "Buy a $10 credit pack to continue."
-                ),
-                "data": {
-                    "balance_usd": str(exc.balance.normalize()),
-                    "required_usd": str(exc.required.normalize()),
-                    "checkout_url": checkout["checkout_url"],
-                },
-            },
-        }
-
-    return {"user": user, "price": price, "tool": tool_name}, None
-
-
-def _finalize_billing(billing_ctx: dict, result) -> None:
-    """Debit credits only after a successful tool execution."""
-    from human_billing.credits import debit_balance
-
-    if _is_tool_failure(result):
-        return
-    debit_balance(
-        billing_ctx["user"]["sub"],
-        billing_ctx["price"],
-        tool=billing_ctx["tool"],
-    )
+        },
+    }
 
 
 async def _execute_tool(tool_name: str, args: dict, request: Request | None = None):
@@ -1217,34 +1155,6 @@ async def _execute_tool(tool_name: str, args: dict, request: Request | None = No
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
     try:
-        if tool_name == "buy_credits":
-            from human_billing.router import authenticate_mcp_request
-            from human_billing.config import credits_enabled
-            from human_billing.stripe_billing import create_checkout_session
-            if not credits_enabled():
-                return {"error": "Credits billing is not configured"}
-            user = authenticate_mcp_request(request) if request else None
-            if not user:
-                return {"error": "Sign in with Google OAuth first (Connect in ChatGPT)"}
-            session = create_checkout_session(google_sub=user["sub"], email=user.get("email", ""))
-            return {
-                "checkout_url": session["checkout_url"],
-                "pack_usd": 10,
-                "message": "Open this URL to buy $10 in prepaid credits.",
-            }
-
-        if tool_name == "credit_balance":
-            from human_billing.router import authenticate_mcp_request
-            from human_billing.config import credits_enabled
-            from human_billing.credits import get_balance
-            if not credits_enabled():
-                return {"error": "Credits billing is not configured"}
-            user = authenticate_mcp_request(request) if request else None
-            if not user:
-                return {"error": "Sign in with Google OAuth first (Connect in ChatGPT)"}
-            balance = get_balance(user["sub"])
-            return {"balance_usd": str(balance), "email": user.get("email")}
-
         if tool_name == "crypto_prices":
             from crypto_data import get_multi_price
             symbols = args.get("symbols", "BTC,ETH,SOL,XRP")
@@ -1253,7 +1163,7 @@ async def _execute_tool(tool_name: str, args: dict, request: Request | None = No
         elif tool_name == "technical_indicators":
             from crypto_data import get_indicators
             symbol = args.get("symbol", "BTC")
-            # Note: This is a paid endpoint — MCP caller needs x402 payment
+            # Paid MCP tool calls are refused before execution; use x402 REST.
             return get_indicators(symbol)
 
         elif tool_name == "defi_yields":
@@ -1514,7 +1424,7 @@ async def mcp_tools_summary():
 
 @router.get("/.well-known/mcp/server-card.json")
 async def mcp_server_card():
-    """MCP server card for registry discovery (Smithery, ChatGPT, mcp-marketplace.io)."""
+    """MCP server card for registry and discovery clients."""
     return build_server_card()
 
 @router.get("/.well-known/mcp")

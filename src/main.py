@@ -63,7 +63,6 @@ from prediction_data import get_polymarket_markets, get_polymarket_market, get_p
 from news_data import get_crypto_news, get_social_trending, get_global_market
 from engine.policy_engine import evaluate_dispute, list_policies
 from mcp_endpoint import router as mcp_router
-from human_billing.router import router as human_billing_router
 from marketing_data import (
     SentimentRequest, TrendRequest, CompetitorRequest, ContentGapRequest, AdCopyRequest,
     analyze_sentiment, detect_trends, analyze_competitors, find_content_gaps, generate_ad_copy,
@@ -1118,7 +1117,6 @@ except Exception as e:
 
 # --- MCP Remote Transport ---
 app.include_router(mcp_router)
-app.include_router(human_billing_router)
 print(f"[mcp] Remote MCP endpoint mounted at /mcp — 21 tools available", flush=True)
 
 
@@ -1784,7 +1782,6 @@ async def api_discovery():
 
 @app.get("/health")
 async def health():
-    from human_billing.config import oauth_enabled, credits_enabled, human_door_enabled
     return {
         "status": "ok",
         "version": "6.0.0",
@@ -1797,10 +1794,6 @@ async def health():
         "x402_error": X402_ERROR,
         "x402_networks": X402_NETWORKS,
         "x402_facilitator": X402_FACILITATOR_URL,
-        "human_door_enabled": human_door_enabled(),
-        "oauth_enabled": oauth_enabled(),
-        "credits_enabled": credits_enabled(),
-        "billing_ledger": "stripe_customer_balance",
         "services": ["crypto_prices", "indicators", "defi_yields", "fear_greed", "geo", "metadata", "search", "swap_quote", "trending", "gas", "predictions", "news", "social_trending", "global", "disputes", "policies", "marketing_sentiment", "marketing_trends", "marketing_competitors", "marketing_content_gaps", "marketing_ad_copy", "whales", "exchange_flows", "correlation", "defi_tvl", "stablecoin_flows", "github_velocity", "agent_context", "macro", "inference", "quick_complete", "token_risk", "crypto_signals", "hn_sentiment", "npm_stats", "github_trending", "yield_comparison", "stock_quote", "stock_history", "sec_filings", "commodities", "economic_indicators", "fx_rates", "web_extract", "package_security", "seo_keywords", "deep_research", "portfolio_intelligence", "defi_strategy", "market_pulse", "onchain_overview", "arbitrage_scanner", "liquidation_map"],
     }
 
@@ -3750,7 +3743,7 @@ async def privacy_policy():
         },
         "security": {
             "transport": "All communication uses HTTPS/TLS 1.2+",
-            "authentication": "Free endpoints require no authentication. Paid endpoints use x402 (HTTP 402) payment protocol with USDC on Base blockchain. No passwords or OAuth tokens are collected.",
+            "authentication": "Free endpoints require no authentication. Paid endpoints use x402 (HTTP 402) payment protocol with USDC on Base blockchain. No account credentials are collected.",
             "infrastructure": "Hosted on Railway (SOC 2 Type II certified infrastructure provider). No on-disk persistent storage of request data."
         },
         "user_rights": {
@@ -3765,9 +3758,6 @@ async def privacy_policy():
             "external_calls": "Tools call AgentServices' own first-party APIs. No third-party API calls are made on behalf of the user."
         }
     }
-
-
-# OAuth well-known endpoints are served by human_billing.router (Google OAuth when configured).
 
 
 # --- llms.txt (agent-accessible documentation index) ---

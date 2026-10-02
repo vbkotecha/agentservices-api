@@ -34,7 +34,7 @@ AgentServices covers 8 categories: crypto, DeFi, on-chain, inference, search, re
 - **Yield Comparison ($0.03):** DeFi yields with risk-adjusted analysis
 
 ### 3. MCP-Native
-Full MCP server (32 tools) via Streamable HTTP with 2026-07-28 spec compliance. Agents using Claude Desktop, Cursor, ChatGPT, Codex, or Windsurf can connect directly.
+Full MCP server (32 tools) via Streamable HTTP with 2026-07-28 spec compliance. Agents using Claude Desktop, Cursor, Codex, or Windsurf can connect directly.
 
 ### 4. Price Tiering
 From $0.002 (web extraction) to $0.10 (portfolio intelligence). Agents can start free (12 free endpoints) and scale up. Competitive on search ($0.01 vs Superhighway's $0.001 — but we offer synthesis and broader coverage).
@@ -70,7 +70,7 @@ From $0.002 (web extraction) to $0.10 (portfolio intelligence). Agents can start
 
 ## Market Positioning
 
-**AgentServices is the "Stripe API" for AI agents — one integration, everything you need.**
+**AgentServices is a unified payment API for AI agents — one integration, everything you need.**
 
 While competitors sell individual tools (search, inference, price data), AgentServices sells a complete intelligence toolkit. Agents don't want to integrate 12 APIs. They want one endpoint that gives them everything.
 
