@@ -1,26 +1,13 @@
-"""Public GEO/discovery copy — ChatGPT MCP connector + x402 REST wallet path."""
-from human_billing.config import credits_enabled, oauth_enabled, public_base_url
+"""Public GEO/discovery copy for x402 REST payments and MCP tools."""
 
 CANONICAL_HOST = "https://agentservices.to"
 MCP_URL = f"{CANONICAL_HOST}/mcp"
 
 
-def _base_url() -> str:
-    return public_base_url() or CANONICAL_HOST
-
-
 def mcp_auth_metadata() -> dict:
-    base = _base_url()
-    if oauth_enabled():
-        return {
-            "type": "oauth2",
-            "note": "Google OAuth for humans in ChatGPT/Claude. Wallet agents use x402 on REST.",
-            "authorization_server": f"{base}/.well-known/oauth-authorization-server",
-            "protected_resource": f"{base}/.well-known/oauth-protected-resource",
-        }
     return {
         "type": "none",
-        "note": "Free tools require no auth. Paid REST uses x402 (HTTP 402) payment.",
+        "note": "Free MCP tools require no auth. Paid services are available via x402-protected REST endpoints.",
     }
 
 
@@ -31,8 +18,6 @@ def mcp_pricing_metadata() -> dict:
         "chain": "base",
         "rest": "Wallet agents pay via HTTP 402 on REST endpoints",
     }
-    if credits_enabled():
-        meta["mcp_human"] = "Google OAuth + Stripe prepaid credits"
     return meta
 
 
@@ -45,47 +30,16 @@ def payment_paths_metadata() -> dict:
             "note": "Wallet agents pay per-request via HTTP 402 on REST endpoints",
         },
     }
-    if oauth_enabled():
-        human: dict = {
-            "auth": "Google OAuth",
-            "mcp_url": MCP_URL,
-            "transport": "streamable-http",
-            "note": "ChatGPT connector: sign in with Google for MCP",
-        }
-        if credits_enabled():
-            human["billing"] = "Stripe prepaid credits"
-            human["ledger"] = "stripe_customer_balance"
-        meta["mcp_human"] = human
     return meta
 
 
 def ai_plugin_manifest() -> dict:
-    base = _base_url()
-    if oauth_enabled():
-        auth = {
-            "type": "oauth",
-            "authorization_url": f"{base}/oauth/authorize",
-            "authorization_content_type": "application/x-www-form-urlencoded",
-            "scope": "openid email profile mcp",
-            "client_url": f"{base}/oauth/register",
-        }
-        description_for_human = (
-            "MCP connector for ChatGPT: Google OAuth sign-in and Stripe prepaid credits. "
-            "REST wallet agents pay via x402 USDC on Base."
-        )
-        description_for_model = (
-            "Connect MCP at https://agentservices.to/mcp (Streamable HTTP). "
-            "Humans in ChatGPT use Google OAuth and Stripe prepaid credits for paid MCP tools. "
-            "Wallet agents use x402 USDC on Base for REST endpoints. "
-            "37+ tools: crypto prices, DeFi, stocks, research, inference, on-chain analytics."
-        )
-    else:
-        auth = {"type": "none"}
-        description_for_human = "Financial data APIs for AI agents. Wallet agents pay via x402 USDC on Base."
-        description_for_model = (
-            "Paid APIs for AI agents. MCP at https://agentservices.to/mcp. "
-            "Paid REST endpoints use x402 (USDC on Base)."
-        )
+    auth = {"type": "none"}
+    description_for_human = "Financial data APIs for AI agents. Paid REST calls use x402 USDC on Base."
+    description_for_model = (
+        "Paid APIs for AI agents. MCP at https://agentservices.to/mcp. "
+        "Free tools are available through MCP; paid tools must be called via x402-protected REST endpoints."
+    )
 
     return {
         "schema_version": "v1",
@@ -104,9 +58,9 @@ def ai_plugin_manifest() -> dict:
 
 def mcp_json() -> dict:
     description = (
-        "MCP connector at https://agentservices.to/mcp (Streamable HTTP). "
-        "ChatGPT/human path: Google OAuth + Stripe credits. "
-        "Wallet agents: x402 USDC on Base for REST. 37+ tools across crypto, DeFi, stocks, research."
+        "MCP server at https://agentservices.to/mcp (Streamable HTTP). "
+        "Free tools are available through MCP; paid services use x402 USDC on Base via REST. "
+        "37+ tools across crypto, DeFi, stocks, research."
     )
     return {
         "name": "AgentServices",
@@ -121,26 +75,9 @@ def mcp_json() -> dict:
 
 
 def llms_txt_content(path_count: int) -> str:
-    oauth_block = ""
-    if oauth_enabled():
-        base = _base_url()
-        credits_line = ""
-        if credits_enabled():
-            credits_line = (
-                "- Billing: Stripe prepaid credits (ledger: stripe_customer_balance)\n"
-            )
-        oauth_block = f"""
-## ChatGPT / Human Connector (MCP)
-- MCP URL: {MCP_URL} (Streamable HTTP)
-- Auth: Google OAuth (sign in with Google)
-{credits_line}- OAuth discovery: {base}/.well-known/oauth-authorization-server
-- Protected resource: {base}/.well-known/oauth-protected-resource
-
-"""
-
     return f"""# AgentServices
 
-> Paid APIs for AI agents. {path_count} live routes generated from the deployed OpenAPI schema. Data, search, market intelligence, inference, and ERC-8004 identity/reputation/evidence. ChatGPT connector via MCP (Google OAuth + Stripe credits). Wallet agents pay per call via x402 (USDC on Base).
+> Paid APIs for AI agents. {path_count} live routes generated from the deployed OpenAPI schema. Data, search, market intelligence, inference, and ERC-8004 identity/reputation/evidence. Free tools are available via MCP; paid tools must be called through x402-protected REST endpoints (USDC on Base).
 
 ## Quick Start
 - Free endpoints: GET https://agentservices.to/v1/prices (crypto prices), GET https://agentservices.to/v1/fear-greed (market sentiment)
@@ -154,7 +91,6 @@ def llms_txt_content(path_count: int) -> str:
 - Live capability schema: https://agentservices.to/openapi.json
 - ERC-8004 provider metadata: https://agentservices.to/v1/erc8004/provider
 - ERC-8004 agent discovery: https://agentservices.to/v1/erc8004/agents
-{oauth_block}
 ## Key Endpoints
 - [Crypto Prices](https://agentservices.to/v1/prices): Free. Real-time prices for 1000+ tokens.
 - [Technical Indicators](https://agentservices.to/v1/indicators/BTC): $0.02. RSI, MACD, Bollinger, ATR, volume analysis.
@@ -172,7 +108,7 @@ def llms_txt_content(path_count: int) -> str:
 - No API keys required for x402 REST
 
 ## Integration
-- MCP: Add {MCP_URL} to your MCP client (ChatGPT connector or Claude/Cursor)
+- MCP: Add {MCP_URL} to your MCP client for free tools. Paid services must be called through x402-protected REST endpoints.
 - Python SDK: pip install agentservices
 - npm: npx agentservices-mcp
 """
@@ -188,16 +124,6 @@ def security_txt_content() -> str:
 
 
 def agents_txt_content(path_count: int) -> str:
-    mcp_auth = (
-        "Google OAuth + Stripe credits for ChatGPT/human MCP users. "
-        "Wallet agents pay via x402 on REST."
-        if oauth_enabled()
-        else "None for free tools. Paid tools use x402 on REST."
-    )
-    credits_note = ""
-    if oauth_enabled() and credits_enabled():
-        credits_note = "Billing ledger: stripe_customer_balance (Stripe prepaid credits).\n"
-
     return f"""# AgentServices — Agent Instructions
 
 ## What This Service Does
@@ -218,12 +144,11 @@ AgentServices provides paid API endpoints for AI agents. The deployed schema cur
 - GET /v1/news — Crypto news
 - GET /v1/global — Global market stats
 
-## MCP Server (ChatGPT connector)
+## MCP Server
 Endpoint: {MCP_URL}
 Transport: Streamable HTTP
 Tools: 38 (free + paid)
-Auth: {mcp_auth}
-{credits_note}
+Auth: None for free tools. Paid tools are refused through MCP; use the corresponding x402-protected REST endpoint instead.
 ## Contact
 Email: hustlemode@agentmail.to
 Website: https://agentservices.to

@@ -16,31 +16,24 @@ from main import app  # noqa: E402
 
 client = TestClient(app)
 
-HUMAN_BILLING_ENV = {
+DISCOVERY_ENV = {
     "VERCEL": "1",
     "CDP_API_KEY_ID": "",
     "CDP_API_KEY_SECRET": "",
-    "GOOGLE_CLIENT_ID": "test-google-client-id",
-    "GOOGLE_CLIENT_SECRET": "test-google-secret",
-    "OAUTH_JWT_SECRET": "test-jwt-secret-for-human-billing",
-    "STRIPE_SECRET_KEY": "sk_test_fake",
-    "STRIPE_WEBHOOK_SECRET": "whsec_test_fake",
-    "PUBLIC_BASE_URL": "https://agentservices.to",
 }
 
 
 @pytest.fixture()
-def oauth_discovery_client():
+def discovery_client():
     modules = [
         name for name in list(sys.modules)
         if name in ("main", "index", "mcp_endpoint", "discovery_surfaces")
-        or name.startswith("human_billing")
     ]
     for name in modules:
         sys.modules.pop(name, None)
-    with patch.dict(os.environ, HUMAN_BILLING_ENV, clear=False):
-        from main import app as oauth_app
-        yield TestClient(oauth_app)
+    with patch.dict(os.environ, DISCOVERY_ENV, clear=False):
+        from main import app as discovery_app
+        yield TestClient(discovery_app)
 
 
 def test_well_known_llms_txt_matches_llms_txt():
@@ -172,12 +165,12 @@ def test_mcp_json_matches_well_known_mcp_json():
     assert root.json()["mcp_endpoint"] == "https://agentservices.to/mcp"
 
 
-def test_discovery_surfaces_mention_x402_rest(oauth_discovery_client):
-    llms = oauth_discovery_client.get("/llms.txt")
-    agents = oauth_discovery_client.get("/agents.txt")
-    mcp = oauth_discovery_client.get("/mcp.json")
-    plugin = oauth_discovery_client.get("/.well-known/ai-plugin.json")
-    card = oauth_discovery_client.get("/.well-known/mcp/server-card.json")
+def test_discovery_surfaces_mention_x402_rest(discovery_client):
+    llms = discovery_client.get("/llms.txt")
+    agents = discovery_client.get("/agents.txt")
+    mcp = discovery_client.get("/mcp.json")
+    plugin = discovery_client.get("/.well-known/ai-plugin.json")
+    card = discovery_client.get("/.well-known/mcp/server-card.json")
 
     assert llms.status_code == 200
     assert agents.status_code == 200
@@ -192,45 +185,42 @@ def test_discovery_surfaces_mention_x402_rest(oauth_discovery_client):
     assert card.json()["pricing"]["rest"] == "Wallet agents pay via HTTP 402 on REST endpoints"
 
 
-def test_discovery_surfaces_mention_chatgpt_oauth_stripe(oauth_discovery_client):
-    llms = oauth_discovery_client.get("/llms.txt")
-    agents = oauth_discovery_client.get("/agents.txt")
-    mcp = oauth_discovery_client.get("/mcp.json")
-    plugin = oauth_discovery_client.get("/.well-known/ai-plugin.json")
-    card = oauth_discovery_client.get("/.well-known/mcp/server-card.json")
+def test_discovery_no_longer_advertises_oauth_or_credit_billing(discovery_client):
+    llms = discovery_client.get("/llms.txt")
+    agents = discovery_client.get("/agents.txt")
+    mcp = discovery_client.get("/mcp.json")
+    plugin = discovery_client.get("/.well-known/ai-plugin.json")
+    card = discovery_client.get("/.well-known/mcp/server-card.json")
+    mcp_manifest = discovery_client.get("/.well-known/mcp")
+
+    for response in (llms, agents, mcp, plugin, card, mcp_manifest):
+        assert response.status_code == 200
+        assert "Stripe" not in response.text
+        assert "Google OAuth" not in response.text
 
     assert "https://agentservices.to/mcp" in llms.text
-    assert "ChatGPT" in llms.text
-    assert "Google OAuth" in llms.text
-    assert "Stripe" in llms.text
-    assert "stripe_customer_balance" in llms.text
-
-    assert "ChatGPT connector" in agents.text
-    assert "Google OAuth" in agents.text
-    assert "Stripe credits" in agents.text
-    assert "stripe_customer_balance" in agents.text
-    assert "Auth: None" not in agents.text
+    assert "x402" in llms.text
+    assert "x402-protected REST endpoints" in llms.text
+    assert "Auth: None" in agents.text
+    assert "Paid tools are refused through MCP" in agents.text
 
     mcp_data = mcp.json()
     assert mcp_data["mcp_endpoint"] == "https://agentservices.to/mcp"
     assert mcp_data["transport"] == "streamable-http"
-    assert mcp_data["authentication"]["type"] == "oauth2"
-    assert "Google OAuth" in mcp_data["description"]
-    assert mcp_data["payment"]["mcp_human"]["auth"] == "Google OAuth"
-    assert mcp_data["payment"]["mcp_human"]["billing"] == "Stripe prepaid credits"
-    assert mcp_data["payment"]["mcp_human"]["ledger"] == "stripe_customer_balance"
+    assert mcp_data["authentication"]["type"] == "none"
+    assert mcp_data["payment"]["rest"]["protocol"] == "x402"
+    assert "mcp_human" not in mcp_data["payment"]
 
     plugin_data = plugin.json()
-    assert plugin_data["auth"]["type"] == "oauth"
-    assert plugin_data["auth"]["authorization_url"] == "https://agentservices.to/oauth/authorize"
-    assert "ChatGPT" in plugin_data["description_for_human"]
+    assert plugin_data["auth"]["type"] == "none"
     assert "x402" in plugin_data["description_for_human"]
 
     card_data = card.json()
     assert card_data["transport"]["endpoint"] == "https://agentservices.to/mcp"
-    assert card_data["authentication"]["type"] == "oauth2"
-    assert card_data["pricing"]["mcp_human"] == "Google OAuth + Stripe prepaid credits"
-    assert "ChatGPT" in card_data["serverInfo"]["description"]
+    assert card_data["authentication"]["type"] == "none"
+    assert "mcp_human" not in card_data["pricing"]
+
+    assert mcp_manifest.json()["authentication"]["type"] == "none"
 
 
 def test_server_json_matches_repo_file():
